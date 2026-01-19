@@ -1,0 +1,121 @@
+import { Medication, Appointment, EmergencyContact, HealthMetric } from '@/types/health';
+
+export const mockMedications: Medication[] = [
+  {
+    id: '1',
+    name: 'Metformin',
+    dosage: '500mg',
+    frequency: 'Twice daily',
+    times: ['08:00', '20:00'],
+    startDate: '2025-01-01',
+    refillReminder: true,
+    pillsRemaining: 28,
+    totalPills: 60,
+    notes: 'Take with food',
+    taken: false,
+  },
+  {
+    id: '2',
+    name: 'Lisinopril',
+    dosage: '10mg',
+    frequency: 'Once daily',
+    times: ['09:00'],
+    startDate: '2025-01-05',
+    refillReminder: true,
+    pillsRemaining: 15,
+    totalPills: 30,
+    taken: true,
+  },
+  {
+    id: '3',
+    name: 'Vitamin D3',
+    dosage: '2000 IU',
+    frequency: 'Once daily',
+    times: ['08:00'],
+    startDate: '2025-01-10',
+    refillReminder: false,
+    pillsRemaining: 45,
+    totalPills: 90,
+    taken: false,
+  },
+  {
+    id: '4',
+    name: 'Aspirin',
+    dosage: '81mg',
+    frequency: 'Once daily',
+    times: ['07:00'],
+    startDate: '2024-12-01',
+    refillReminder: true,
+    pillsRemaining: 60,
+    totalPills: 100,
+    notes: 'Take in the morning',
+    taken: true,
+  },
+];
+
+export const mockAppointments: Appointment[] = [
+  {
+    id: '1',
+    title: 'Annual Physical',
+    date: '2026-01-22',
+    time: '10:00',
+    location: 'City Medical Center',
+    doctorName: 'Dr. Sarah Johnson',
+    type: 'checkup',
+    reminder: true,
+  },
+  {
+    id: '2',
+    title: 'Blood Work',
+    date: '2026-01-25',
+    time: '08:30',
+    location: 'LabCorp - Downtown',
+    type: 'lab',
+    reminder: true,
+  },
+  {
+    id: '3',
+    title: 'Cardiology Follow-up',
+    date: '2026-02-05',
+    time: '14:00',
+    location: 'Heart Health Clinic',
+    doctorName: 'Dr. Michael Chen',
+    type: 'specialist',
+    reminder: true,
+    notes: 'Bring previous test results',
+  },
+];
+
+export const mockEmergencyContacts: EmergencyContact[] = [
+  {
+    id: '1',
+    name: 'Jane Doe',
+    phone: '+1 (555) 123-4567',
+    email: 'jane.doe@email.com',
+    relationship: 'Spouse',
+  },
+  {
+    id: '2',
+    name: 'Dr. Sarah Johnson',
+    phone: '+1 (555) 987-6543',
+    email: 'dr.johnson@citymedical.com',
+    relationship: 'Primary Care Physician',
+  },
+  {
+    id: '3',
+    name: 'John Doe Jr.',
+    phone: '+1 (555) 456-7890',
+    relationship: 'Son',
+  },
+];
+
+export const mockHealthMetrics: HealthMetric[] = [
+  { id: '1', type: 'blood_pressure', value: '120/80', unit: 'mmHg', date: '2026-01-19', time: '08:00' },
+  { id: '2', type: 'heart_rate', value: '72', unit: 'bpm', date: '2026-01-19', time: '08:00' },
+  { id: '3', type: 'blood_sugar', value: '95', unit: 'mg/dL', date: '2026-01-19', time: '07:30' },
+  { id: '4', type: 'weight', value: '175', unit: 'lbs', date: '2026-01-18', time: '07:00' },
+  { id: '5', type: 'blood_pressure', value: '118/78', unit: 'mmHg', date: '2026-01-18', time: '08:00' },
+  { id: '6', type: 'heart_rate', value: '68', unit: 'bpm', date: '2026-01-18', time: '08:00' },
+  { id: '7', type: 'blood_pressure', value: '122/82', unit: 'mmHg', date: '2026-01-17', time: '08:15' },
+  { id: '8', type: 'heart_rate', value: '75', unit: 'bpm', date: '2026-01-17', time: '08:15' },
+];
