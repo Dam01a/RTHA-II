@@ -1,40 +1,37 @@
-import { motion } from 'framer-motion';
-import { Pill, Calendar, HeartPulse, Clock } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { View, Text, StyleSheet } from "react-native";
+import { Pill, Calendar, HeartPulse, Clock } from "lucide-react-native";
+import { colors } from "@/src/theme/colors";
 
 interface StatCardProps {
   icon: React.ElementType;
   label: string;
   value: string | number;
   subtitle: string;
-  colorClass: string;
-  delay: number;
+  colorClass: keyof typeof colorMap;
 }
 
-function StatCard({ icon: Icon, label, value, subtitle, colorClass, delay }: StatCardProps) {
+const colorMap = {
+  primary: { bg: colors.primary + "20", text: colors.primary },
+  info: { bg: colors.info + "20", text: colors.info },
+  success: { bg: colors.success + "20", text: colors.success },
+  warning: { bg: colors.warning + "20", text: colors.warning },
+};
+
+function StatCard({ icon: Icon, label, value, subtitle, colorClass }: StatCardProps) {
+  const c = colorMap[colorClass];
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.4 }}
-      className="group relative overflow-hidden rounded-2xl bg-card p-5 shadow-sm transition-all duration-300 hover:shadow-md"
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">{label}</p>
-          <p className="mt-1 text-3xl font-bold text-foreground">{value}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
-        </div>
-        <div
-          className={cn(
-            'flex h-12 w-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110',
-            colorClass
-          )}
-        >
-          <Icon className="h-6 w-6" />
-        </div>
-      </div>
-    </motion.div>
+    <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <View style={styles.cardContent}>
+        <View>
+          <Text style={styles.label}>{label}</Text>
+          <Text style={styles.value}>{value}</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
+        </View>
+        <View style={[styles.iconBox, { backgroundColor: c.bg }]}>
+          <Icon color={c.text} size={24} />
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -42,39 +39,57 @@ export default function QuickStats() {
   const stats = [
     {
       icon: Pill,
-      label: 'Medications Today',
-      value: '4',
-      subtitle: '2 completed, 2 remaining',
-      colorClass: 'bg-primary/10 text-primary',
+      label: "Medications Today",
+      value: "4",
+      subtitle: "2 completed, 2 remaining",
+      colorClass: "primary" as const,
     },
     {
       icon: Calendar,
-      label: 'Appointments',
-      value: '3',
-      subtitle: 'Next: Jan 22 at 10:00 AM',
-      colorClass: 'bg-info/10 text-info',
+      label: "Appointments",
+      value: "3",
+      subtitle: "Next: Jan 22 at 10:00 AM",
+      colorClass: "info" as const,
     },
     {
       icon: HeartPulse,
-      label: 'Blood Pressure',
-      value: '120/80',
-      subtitle: 'Last checked today',
-      colorClass: 'bg-success/10 text-success',
+      label: "Blood Pressure",
+      value: "120/80",
+      subtitle: "Last checked today",
+      colorClass: "success" as const,
     },
     {
       icon: Clock,
-      label: 'Streak',
-      value: '7',
-      subtitle: 'Days of adherence',
-      colorClass: 'bg-warning/10 text-warning',
+      label: "Streak",
+      value: "7",
+      subtitle: "Days of adherence",
+      colorClass: "warning" as const,
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {stats.map((stat, index) => (
-        <StatCard key={stat.label} {...stat} delay={index * 0.1} />
+    <View style={styles.grid}>
+      {stats.map((stat) => (
+        <StatCard key={stat.label} {...stat} />
       ))}
-    </div>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  grid: { gap: 16 },
+  card: {
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  cardContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  label: { fontSize: 14, color: colors.mutedForeground, fontWeight: "500" },
+  value: { fontSize: 28, fontWeight: "700", color: colors.foreground, marginTop: 4 },
+  subtitle: { fontSize: 12, color: colors.mutedForeground, marginTop: 4 },
+  iconBox: { width: 48, height: 48, borderRadius: 12, justifyContent: "center", alignItems: "center" },
+});

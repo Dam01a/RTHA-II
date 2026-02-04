@@ -1,73 +1,69 @@
-# Welcome to your Lovable project
+# RTHA - Real-Time Health App (Mobile)
 
-## Project info
+A mobile health management app built with **Expo** and **React Native**, designed to run on **Expo Go**.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Features
 
-## How can I edit this code?
+- **Dashboard** – Quick stats, today's medications, upcoming appointments, health overview
+- **Medications** – Track medications, dosages, refill status, and mark as taken
+- **Appointments** – View and manage medical appointments with calendar
+- **Health** – Monitor vitals (blood pressure, heart rate, blood sugar, weight, temperature) with charts
+- **Settings** – Profile, emergency contacts, notifications, accessibility, security
+- **Emergency Button** – One-tap emergency assistance with countdown and contact notification
 
-There are several ways of editing your application.
+## Prerequisites
 
-**Use Lovable**
+- Node.js (LTS)
+- npm or yarn
+- **Expo Go** app on your phone ([iOS](https://apps.apple.com/app/expo-go/id982107779) | [Android](https://play.google.com/store/apps/details?id=host.exp.exponent))
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Quick Start
 
-Changes made via Lovable will be committed automatically to this repo.
+```bash
+# Install dependencies
+npm install
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Start the Expo development server
+npm start
 ```
 
-**Edit a file directly in GitHub**
+Then:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+1. Scan the QR code with your phone camera (iOS) or the Expo Go app (Android)
+2. The app will load in Expo Go
 
-**Use GitHub Codespaces**
+## Scripts
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+| Command | Description |
+|---------|-------------|
+| `npm start` | Start Expo dev server |
+| `npm run android` | Start on Android emulator |
+| `npm run ios` | Start on iOS simulator |
 
-## What technologies are used for this project?
+## Tech Stack
 
-This project is built with:
+- **Expo SDK 52** – React Native development platform
+- **Expo Router** – File-based routing
+- **React Navigation** – Tab navigation
+- **Lucide React Native** – Icons
+- **react-native-gifted-charts** – Health metric charts
+- **date-fns** – Date formatting
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Project Structure
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```
+app/
+  _layout.tsx          # Root layout
+  (tabs)/
+    _layout.tsx        # Tab navigator
+    index.tsx          # Dashboard
+    medications.tsx
+    appointments.tsx
+    health.tsx
+    settings.tsx
+src/
+  components/          # Shared components
+  data/                # Mock data
+  theme/               # Colors and styles
+  types/               # TypeScript types
+```

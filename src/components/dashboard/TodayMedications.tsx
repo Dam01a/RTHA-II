@@ -1,111 +1,145 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Check, Clock, Pill, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { mockMedications } from '@/data/mockData';
-import { cn } from '@/lib/utils';
-import { Link } from 'react-router-dom';
+import { useState } from "react";
+import { View, Text, StyleSheet, Pressable } from "react-native";
+import { useRouter } from "expo-router";
+import { Check, Clock, Pill, ChevronRight } from "lucide-react-native";
+import { mockMedications } from "@/src/data/mockData";
+import { colors } from "@/src/theme/colors";
 
 export default function TodayMedications() {
   const [medications, setMedications] = useState(mockMedications);
+  const router = useRouter();
 
   const toggleMedication = (id: string) => {
     setMedications((prev) =>
-      prev.map((med) =>
-        med.id === id ? { ...med, taken: !med.taken } : med
-      )
+      prev.map((med) => (med.id === id ? { ...med, taken: !med.taken } : med))
     );
   };
 
   const takenCount = medications.filter((m) => m.taken).length;
-  const progress = (takenCount / medications.length) * 100;
+  const progress = medications.length > 0 ? (takenCount / medications.length) * 100 : 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
-      className="rounded-2xl bg-card p-6 shadow-sm"
-    >
-      <div className="mb-5 flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-foreground">Today's Medications</h3>
-          <p className="text-sm text-muted-foreground">
+    <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Today's Medications</Text>
+          <Text style={styles.subtitle}>
             {takenCount} of {medications.length} completed
-          </p>
-        </div>
-        <Link to="/medications">
-          <Button variant="ghost" size="sm" className="gap-1 text-primary">
-            View All
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </Link>
-      </div>
+          </Text>
+        </View>
+        <Pressable onPress={() => router.push("/medications")} style={styles.viewAll}>
+          <Text style={styles.viewAllText}>View All</Text>
+          <ChevronRight color={colors.primary} size={16} />
+        </Pressable>
+      </View>
 
-      {/* Progress Bar */}
-      <div className="mb-5">
-        <div className="h-2 overflow-hidden rounded-full bg-muted">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="h-full rounded-full gradient-primary"
-          />
-        </div>
-      </div>
+      <View style={styles.progressBar}>
+        <View style={styles.progressBg}>
+          <View style={[styles.progressFill, { width: `${progress}%` }]} />
+        </View>
+      </View>
 
-      {/* Medication List */}
-      <div className="space-y-3">
-        {medications.map((med, index) => (
-          <motion.div
+      <View style={styles.list}>
+        {medications.map((med) => (
+          <View
             key={med.id}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 * index }}
-            className={cn(
-              'group flex items-center gap-4 rounded-xl p-4 transition-all duration-200',
-              med.taken
-                ? 'bg-success/5 border border-success/20'
-                : 'bg-muted/50 hover:bg-muted'
-            )}
+            style={[
+              styles.medItem,
+              med.taken ? styles.medItemTaken : styles.medItemPending,
+            ]}
           >
-            <button
-              onClick={() => toggleMedication(med.id)}
-              className={cn(
-                'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200',
-                med.taken
-                  ? 'border-success bg-success text-success-foreground'
-                  : 'border-muted-foreground/30 hover:border-primary hover:bg-primary/5'
-              )}
+            <Pressable
+              onPress={() => toggleMedication(med.id)}
+              style={[
+                styles.checkButton,
+                med.taken ? styles.checkButtonTaken : styles.checkButtonPending,
+              ]}
             >
               {med.taken ? (
-                <Check className="h-5 w-5" />
+                <Check color={colors.successForeground} size={20} />
               ) : (
-                <Pill className="h-5 w-5 text-muted-foreground" />
+                <Pill color={colors.mutedForeground} size={20} />
               )}
-            </button>
-
-            <div className="flex-1 min-w-0">
-              <p
-                className={cn(
-                  'font-medium transition-colors',
-                  med.taken ? 'text-success line-through' : 'text-foreground'
-                )}
+            </Pressable>
+            <View style={styles.medContent}>
+              <Text
+                style={[
+                  styles.medName,
+                  med.taken && { textDecorationLine: "line-through", color: colors.success },
+                ]}
               >
                 {med.name}
-              </p>
-              <p className="text-sm text-muted-foreground">
+              </Text>
+              <Text style={styles.medDosage}>
                 {med.dosage} • {med.frequency}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>{med.times[0]}</span>
-            </div>
-          </motion.div>
+              </Text>
+            </View>
+            <View style={styles.timeBox}>
+              <Clock color={colors.mutedForeground} size={16} />
+              <Text style={styles.timeText}>{med.times[0]}</Text>
+            </View>
+          </View>
         ))}
-      </div>
-    </motion.div>
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+  title: { fontSize: 18, fontWeight: "600", color: colors.foreground },
+  subtitle: { fontSize: 14, color: colors.mutedForeground, marginTop: 4 },
+  viewAll: { flexDirection: "row", alignItems: "center", gap: 4 },
+  viewAllText: { fontSize: 14, color: colors.primary, fontWeight: "500" },
+  progressBar: { marginBottom: 20 },
+  progressBg: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.muted,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: colors.primary,
+    borderRadius: 4,
+  },
+  list: { gap: 12 },
+  medItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 12,
+    gap: 16,
+  },
+  medItemTaken: { backgroundColor: colors.success + "15", borderWidth: 1, borderColor: colors.success + "40" },
+  medItemPending: { backgroundColor: colors.muted + "80" },
+  checkButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+  },
+  checkButtonTaken: {
+    borderColor: colors.success,
+    backgroundColor: colors.success,
+  },
+  checkButtonPending: {
+    borderColor: colors.mutedForeground + "50",
+  },
+  medContent: { flex: 1 },
+  medName: { fontSize: 16, fontWeight: "500", color: colors.foreground },
+  medDosage: { fontSize: 14, color: colors.mutedForeground, marginTop: 2 },
+  timeBox: { flexDirection: "row", alignItems: "center", gap: 6 },
+  timeText: { fontSize: 14, color: colors.mutedForeground },
+});

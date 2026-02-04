@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "RTHA",
+    "slug": "rtha-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "rtha",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0d9488"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.rtha.mobile"
+    },
+    "android": {
+      "package": "com.rtha.mobile"
+    },
+    "plugins": ["expo-router"]
+  }
+}
