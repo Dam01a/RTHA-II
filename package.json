@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start",
+    "start": "expo start -p 8082",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
@@ -21,8 +21,9 @@
     "expo-linking": "^8.0.11",
     "expo-router": "~6.0.23",
     "expo-status-bar": "~3.0.9",
-    "lucide-react-native": "^0.462.0",
+    "lucide-react-native": "^0.574.0",
     "react": "19.1.0",
+    "react-dom": "19.1.0",
     "react-native": "0.81.5",
     "react-native-gifted-charts": "^1.3.0",
     "react-native-linear-gradient": "^2.8.3",
@@ -36,12 +37,15 @@
     "@babel/core": "^7.25.2",
     "@types/react": "~19.1.10",
     "babel-plugin-module-resolver": "^5.0.0",
+    "babel-preset-expo": "^54.0.10",
     "typescript": "~5.9.2"
   },
   "private": true,
   "expo": {
     "install": {
-      "exclude": ["react-native-worklets"]
+      "exclude": [
+        "react-native-worklets"
+      ]
     }
   }
 }
