@@ -11,6 +11,8 @@ export default function EmergencyButton() {
   const [countdown, setCountdown] = useState(COUNTDOWN_DURATION);
   const [isEmergencyMode, setIsEmergencyMode] = useState(false);
 
+  const safeMockEmergencyContacts = Array.isArray(mockEmergencyContacts) ? mockEmergencyContacts : [];
+
   const cancelEmergency = useCallback(() => {
     setIsActivated(false);
     setCountdown(COUNTDOWN_DURATION);
@@ -18,20 +20,40 @@ export default function EmergencyButton() {
   }, []);
 
   const triggerEmergency = useCallback(() => {
+    if (isEmergencyMode) {
+      return;
+    }
     setIsEmergencyMode(true);
     // In a real app, this would trigger GPS sharing and contact notifications
     console.log("Emergency triggered! Contacting:", mockEmergencyContacts);
-  }, []);
+  }, [isEmergencyMode]);
 
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
-    if (isActivated && countdown > 0) {
-      timer = setInterval(() => setCountdown((prev) => prev - 1), 1000);
-    } else if (isActivated && countdown === 0) {
-      triggerEmergency();
+    if (!isActivated || isEmergencyMode) {
+      return;
     }
+
+    if (!Number.isFinite(countdown) || countdown < 0) {
+      setCountdown(COUNTDOWN_DURATION);
+      return;
+    }
+
+    if (countdown === 0) {
+      triggerEmergency();
+      return;
+    }
+
+    const timer: ReturnType<typeof setInterval> = setInterval(() => {
+      setCountdown((prev) => {
+        if (!Number.isFinite(prev) || prev <= 1) {
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
     return () => clearInterval(timer);
-  }, [isActivated, countdown, triggerEmergency]);
+  }, [isActivated, isEmergencyMode, countdown, triggerEmergency]);
 
   return (
     <>
@@ -82,7 +104,7 @@ export default function EmergencyButton() {
                 </View>
                 <View style={styles.contactsList}>
                   <Text style={styles.contactsLabel}>Contacted:</Text>
-                  {mockEmergencyContacts.slice(0, 2).map((contact) => (
+                  {safeMockEmergencyContacts.slice(0, 2).map((contact) => (
                     <View key={contact.id} style={styles.contactItem}>
                       <Text style={styles.contactName}>{contact.name}</Text>
                       <Text style={styles.contactRelation}>{contact.relationship}</Text>
