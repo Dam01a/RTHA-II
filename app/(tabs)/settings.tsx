@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, ScrollView, StyleSheet, Pressable } from "react-native";
 import {
   User,
@@ -11,12 +11,14 @@ import {
   Heart,
 } from "lucide-react-native";
 import { Switch } from "react-native";
-import { mockEmergencyContacts } from "@/src/data/mockData";
 import { EmergencyContact } from "@/src/types/health";
 import { colors } from "@/src/theme/colors";
+import { useAuth } from "@/src/context/AuthContext";
+import { ensureEmergencyContactsSeeded, subscribeEmergencyContacts } from "@/src/lib/emergencyContacts";
 
 export default function SettingsScreen() {
-  const [emergencyContacts] = useState<EmergencyContact[]>(mockEmergencyContacts);
+  const { user, logout } = useAuth();
+  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
   const [settings, setSettings] = useState({
     medicationReminders: true,
     appointmentReminders: true,
@@ -30,6 +32,23 @@ export default function SettingsScreen() {
     setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const initials = user?.email?.slice(0, 2).toUpperCase() ?? "NA";
+
+  useEffect(() => {
+    if (!user?.uid) {
+      return;
+    }
+
+    ensureEmergencyContactsSeeded(user.uid).catch(() => {
+      // Non-blocking seed attempt for first-run accounts.
+    });
+
+    const unsubscribe = subscribeEmergencyContacts(user.uid, setEmergencyContacts);
+    return unsubscribe;
+  }, [user?.uid]);
+
+  const displayContacts = user?.uid ? emergencyContacts : [];
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
@@ -40,15 +59,15 @@ export default function SettingsScreen() {
       <View style={styles.section}>
         <View style={styles.profileRow}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>JD</Text>
+            <Text style={styles.avatarText}>{initials}</Text>
           </View>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>John Doe</Text>
-            <Text style={styles.profileEmail}>john.doe@email.com</Text>
+            <Text style={styles.profileName}>{user?.email ?? "No user found"}</Text>
+            <Text style={styles.profileEmail}>Firebase authenticated account</Text>
           </View>
-          <Pressable style={styles.editButton}>
+          <Pressable style={styles.editButton} onPress={logout}>
             <Edit color={colors.foreground} size={16} />
-            <Text style={styles.editButtonText}>Edit</Text>
+            <Text style={styles.editButtonText}>Logout</Text>
           </Pressable>
         </View>
       </View>
@@ -62,13 +81,13 @@ export default function SettingsScreen() {
             <Text style={styles.sectionTitle}>Emergency Contacts</Text>
             <Text style={styles.sectionSubtitle}>People to notify in emergencies</Text>
           </View>
-          <Pressable style={styles.addButton}>
+          <Pressable style={styles.addButton} onPress={() => user?.uid && ensureEmergencyContactsSeeded(user.uid)}>
             <Plus color="#fff" size={16} />
-            <Text style={styles.addButtonText}>Add</Text>
+            <Text style={styles.addButtonText}>Sync</Text>
           </Pressable>
         </View>
         <View style={styles.contactsList}>
-          {emergencyContacts.map((contact) => (
+          {displayContacts.map((contact) => (
             <View key={contact.id} style={styles.contactItem}>
               <View style={styles.contactLeft}>
                 <View style={styles.contactAvatar}>

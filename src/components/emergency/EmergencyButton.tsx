@@ -1,51 +1,79 @@
 import { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, Pressable, Modal } from "react-native";
+import { View, Text, StyleSheet, Pressable, Modal, Linking } from "react-native";
 import { AlertTriangle, Phone, X, MapPin } from "lucide-react-native";
-import { mockEmergencyContacts } from "@/src/data/mockData";
 import { colors } from "@/src/theme/colors";
+import { useAuth } from "@/src/context/AuthContext";
+import { triggerEmergencyAlert } from "@/src/lib/emergencyService";
+import type { EmergencyDispatchResult } from "@/src/types/emergency";
 
 const COUNTDOWN_DURATION = 5;
+const MIN_TRIGGER_INTERVAL_MS = 30_000;
 
 export default function EmergencyButton() {
+  const { user } = useAuth();
   const [isActivated, setIsActivated] = useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_DURATION);
-  const [isEmergencyMode, setIsEmergencyMode] = useState(false);
-
-  const safeMockEmergencyContacts = Array.isArray(mockEmergencyContacts) ? mockEmergencyContacts : [];
+  const [isDispatching, setIsDispatching] = useState(false);
+  const [result, setResult] = useState<EmergencyDispatchResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [lastTriggeredAt, setLastTriggeredAt] = useState<number>(0);
 
   const cancelEmergency = useCallback(() => {
     setIsActivated(false);
     setCountdown(COUNTDOWN_DURATION);
-    setIsEmergencyMode(false);
+    setIsDispatching(false);
+    setResult(null);
+    setError(null);
   }, []);
 
   const triggerEmergency = useCallback(() => {
-    if (isEmergencyMode) {
+    if (!user) {
+      setError("You must be signed in.");
       return;
     }
-    setIsEmergencyMode(true);
-    // In a real app, this would trigger GPS sharing and contact notifications
-    console.log("Emergency triggered! Contacting:", mockEmergencyContacts);
-  }, [isEmergencyMode]);
+    if (isDispatching || result) {
+      return;
+    }
+
+    if (Date.now() - lastTriggeredAt < MIN_TRIGGER_INTERVAL_MS) {
+      setError("Emergency alert was recently sent. Please wait before retrying.");
+      return;
+    }
+
+    setIsDispatching(true);
+    setError(null);
+    setLastTriggeredAt(Date.now());
+
+    triggerEmergencyAlert({
+      uid: user.uid,
+      email: user.email ?? null,
+    })
+      .then((dispatchResult) => setResult(dispatchResult))
+      .catch(() => setError("Unable to deliver emergency alert right now."))
+      .finally(() => setIsDispatching(false));
+  }, [isDispatching, lastTriggeredAt, result, user]);
+
+  const callEmergencyServices = useCallback(async () => {
+    const url = "tel:911";
+    const supported = await Linking.canOpenURL(url);
+    if (!supported) {
+      setError("Dialer unavailable on this device.");
+      return;
+    }
+    await Linking.openURL(url);
+  }, []);
 
   useEffect(() => {
-    if (!isActivated || isEmergencyMode) {
-      return;
-    }
-
-    if (!Number.isFinite(countdown) || countdown < 0) {
-      setCountdown(COUNTDOWN_DURATION);
-      return;
-    }
-
-    if (countdown === 0) {
-      triggerEmergency();
+    if (!isActivated || isDispatching || result) {
       return;
     }
 
     const timer: ReturnType<typeof setInterval> = setInterval(() => {
       setCountdown((prev) => {
         if (!Number.isFinite(prev) || prev <= 1) {
+          setTimeout(() => {
+            triggerEmergency();
+          }, 0);
           return 0;
         }
         return prev - 1;
@@ -53,37 +81,46 @@ export default function EmergencyButton() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isActivated, isEmergencyMode, countdown, triggerEmergency]);
+  }, [isActivated, isDispatching, result, countdown, triggerEmergency]);
 
   return (
     <>
-      <Pressable
-        onPress={() => !isActivated && setIsActivated(true)}
-        style={[styles.button, isActivated ? styles.buttonActive : styles.buttonInactive]}
-      >
-        <View style={[styles.iconBox, isActivated ? styles.iconBoxActive : styles.iconBoxInactive]}>
-          <AlertTriangle color={isActivated ? "#fff" : colors.destructive} size={24} />
-        </View>
-        <View>
-          <Text style={[styles.title, isActivated && styles.textWhite]}>Emergency</Text>
-          <Text style={[styles.subtitle, isActivated && styles.textWhite80]}>One-tap assistance</Text>
-        </View>
-      </Pressable>
+      <View style={styles.quickActions}>
+        <Pressable
+          onPress={() => !isActivated && setIsActivated(true)}
+          style={[styles.button, isActivated ? styles.buttonActive : styles.buttonInactive]}
+        >
+          <View style={[styles.iconBox, isActivated ? styles.iconBoxActive : styles.iconBoxInactive]}>
+            <AlertTriangle color={isActivated ? "#fff" : colors.destructive} size={24} />
+          </View>
+          <View>
+            <Text style={[styles.title, isActivated && styles.textWhite]}>Emergency</Text>
+            <Text style={[styles.subtitle, isActivated && styles.textWhite80]}>Tap once to start SOS countdown</Text>
+          </View>
+        </Pressable>
+        <Pressable style={styles.inlineCallButton} onPress={callEmergencyServices}>
+          <Phone color="#fff" size={18} />
+          <Text style={styles.inlineCallButtonText}>Call 911 now</Text>
+        </Pressable>
+      </View>
 
       <Modal visible={isActivated} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            {!isEmergencyMode ? (
+            {!result ? (
               <View style={styles.countdownContent}>
                 <View style={styles.circleContainer}>
                   <View style={[styles.circleBg, styles.circle]}>
-                    <Text style={styles.countdownText}>{countdown}</Text>
+                    <Text style={styles.countdownText}>{isDispatching ? "..." : countdown}</Text>
                   </View>
                 </View>
                 <Text style={styles.modalTitle}>Emergency Alert</Text>
                 <Text style={styles.modalSubtitle}>
-                  Your emergency contacts will be notified in {countdown} seconds
+                  {isDispatching
+                    ? "Sending emergency alert..."
+                    : `Your emergency contacts will be notified in ${countdown} seconds`}
                 </Text>
+                {error ? <Text style={styles.errorText}>{error}</Text> : null}
                 <Pressable onPress={cancelEmergency} style={styles.cancelButton}>
                   <X color={colors.foreground} size={20} />
                   <Text style={styles.cancelText}>Cancel Emergency</Text>
@@ -96,21 +133,32 @@ export default function EmergencyButton() {
                 </View>
                 <Text style={styles.helpTitle}>Help is on the way!</Text>
                 <Text style={styles.helpSubtitle}>
-                  Your emergency contacts have been notified
+                  Alert status: {result.status.replace("_", " ")}
                 </Text>
                 <View style={styles.locationBox}>
                   <MapPin color="#fff" size={16} />
-                  <Text style={styles.locationText}>Sharing your location...</Text>
+                  <Text style={styles.locationText}>{result.locationSummary}</Text>
                 </View>
                 <View style={styles.contactsList}>
                   <Text style={styles.contactsLabel}>Contacted:</Text>
-                  {safeMockEmergencyContacts.slice(0, 2).map((contact) => (
-                    <View key={contact.id} style={styles.contactItem}>
-                      <Text style={styles.contactName}>{contact.name}</Text>
-                      <Text style={styles.contactRelation}>{contact.relationship}</Text>
+                  {result.contactedPhones.length > 0 ? (
+                    result.contactedPhones.map((phone) => (
+                      <View key={phone} style={styles.contactItem}>
+                        <Text style={styles.contactName}>{phone}</Text>
+                        <Text style={styles.contactRelation}>SMS sent</Text>
+                      </View>
+                    ))
+                  ) : (
+                    <View style={styles.contactItem}>
+                      <Text style={styles.contactName}>No contacts confirmed</Text>
+                      <Text style={styles.contactRelation}>Check provider logs</Text>
                     </View>
-                  ))}
+                  )}
                 </View>
+                <Pressable onPress={callEmergencyServices} style={styles.callButton}>
+                  <Phone color="#fff" size={18} />
+                  <Text style={styles.callButtonText}>Call 911</Text>
+                </Pressable>
                 <Pressable onPress={cancelEmergency} style={styles.safeButton}>
                   <Text style={styles.safeButtonText}>I'm Safe - Cancel Alert</Text>
                 </Pressable>
@@ -124,11 +172,14 @@ export default function EmergencyButton() {
 }
 
 const styles = StyleSheet.create({
+  quickActions: {
+    gap: 10,
+  },
   button: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 16,
+    padding: 18,
     borderRadius: 16,
     overflow: "hidden",
   },
@@ -149,6 +200,16 @@ const styles = StyleSheet.create({
   iconBoxInactive: { backgroundColor: colors.destructive + "20" },
   title: { fontSize: 16, fontWeight: "600", color: colors.destructive },
   subtitle: { fontSize: 12, color: colors.destructive + "b3", marginTop: 2 },
+  inlineCallButton: {
+    backgroundColor: colors.destructive,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  inlineCallButtonText: { color: "#fff", fontWeight: "700", fontSize: 14 },
   textWhite: { color: "#fff" },
   textWhite80: { color: "rgba(255,255,255,0.8)" },
   modalOverlay: {
@@ -200,6 +261,7 @@ const styles = StyleSheet.create({
     borderColor: colors.mutedForeground + "50",
   },
   cancelText: { fontSize: 16, fontWeight: "500", color: colors.foreground },
+  errorText: { color: colors.destructive, marginBottom: 10, textAlign: "center" },
   emergencyActive: {
     padding: 32,
     backgroundColor: colors.destructive,
@@ -251,5 +313,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
+  callButton: {
+    width: "100%",
+    padding: 14,
+    borderColor: "rgba(255,255,255,0.5)",
+    borderWidth: 1,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+  },
+  callButtonText: { fontSize: 16, fontWeight: "600", color: "#fff" },
   safeButtonText: { fontSize: 16, fontWeight: "600", color: colors.destructive },
 });

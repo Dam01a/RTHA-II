@@ -32,6 +32,18 @@ Then:
 1. Scan the QR code with your phone camera (iOS) or the Expo Go app (Android)
 2. The app will load in Expo Go
 
+## Firebase Auth Setup
+
+1. Copy `.env.example` to `.env`
+2. Paste your Firebase web config values into these variables:
+   - `EXPO_PUBLIC_FIREBASE_API_KEY`
+   - `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
+   - `EXPO_PUBLIC_FIREBASE_PROJECT_ID`
+   - `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
+   - `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+   - `EXPO_PUBLIC_FIREBASE_APP_ID`
+3. In Firebase Console, enable **Authentication > Sign-in method > Email/Password**
+
 ## Scripts
 
 | Command | Description |
