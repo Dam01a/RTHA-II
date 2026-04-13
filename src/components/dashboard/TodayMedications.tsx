@@ -1,22 +1,48 @@
-import { useState } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { useMemo } from "react";
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { Check, Clock, Pill, ChevronRight } from "lucide-react-native";
-import { mockMedications } from "@/src/data/mockData";
-import { colors } from "@/src/theme/colors";
+import { colors } from "../../theme/colors";
+import { useAuth } from "../../context/AuthContext";
+import { useMedications } from "../../hooks/useMedications";
+import type { Medication } from "../../types/health";
+
+const MAX_ITEMS = 5;
 
 export default function TodayMedications() {
-  const [medications, setMedications] = useState(mockMedications);
   const router = useRouter();
+  const { user } = useAuth();
+  const { medications, loading, updateMedication } = useMedications(user?.uid);
 
-  const toggleMedication = (id: string) => {
-    setMedications((prev) =>
-      prev.map((med) => (med.id === id ? { ...med, taken: !med.taken } : med))
-    );
+  const displayList = useMemo(() => medications.slice(0, MAX_ITEMS), [medications]);
+
+  const toggleMedication = (med: Medication) => {
+    if (!user?.uid) {
+      return;
+    }
+    updateMedication(med.id, { taken: !med.taken });
   };
 
   const takenCount = medications.filter((m) => m.taken).length;
   const progress = medications.length > 0 ? (takenCount / medications.length) * 100 : 0;
+
+  if (!user) {
+    return (
+      <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <Text style={styles.title}>Today's Medications</Text>
+        <Text style={styles.subtitle}>Sign in to track your medications.</Text>
+      </View>
+    );
+  }
+
+  if (loading) {
+    return (
+      <View style={[styles.card, styles.loadingCard, { backgroundColor: colors.card }]}>
+        <ActivityIndicator color={colors.primary} />
+        <Text style={styles.loadingLabel}>Loading medications…</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
@@ -40,46 +66,50 @@ export default function TodayMedications() {
       </View>
 
       <View style={styles.list}>
-        {medications.map((med) => (
-          <View
-            key={med.id}
-            style={[
-              styles.medItem,
-              med.taken ? styles.medItemTaken : styles.medItemPending,
-            ]}
-          >
-            <Pressable
-              onPress={() => toggleMedication(med.id)}
+        {displayList.length === 0 ? (
+          <Text style={styles.emptyHint}>No medications yet. Add some on the Medications tab.</Text>
+        ) : (
+          displayList.map((med) => (
+            <View
+              key={med.id}
               style={[
-                styles.checkButton,
-                med.taken ? styles.checkButtonTaken : styles.checkButtonPending,
+                styles.medItem,
+                med.taken ? styles.medItemTaken : styles.medItemPending,
               ]}
             >
-              {med.taken ? (
-                <Check color={colors.successForeground} size={20} />
-              ) : (
-                <Pill color={colors.mutedForeground} size={20} />
-              )}
-            </Pressable>
-            <View style={styles.medContent}>
-              <Text
+              <Pressable
+                onPress={() => toggleMedication(med)}
                 style={[
-                  styles.medName,
-                  med.taken && { textDecorationLine: "line-through", color: colors.success },
+                  styles.checkButton,
+                  med.taken ? styles.checkButtonTaken : styles.checkButtonPending,
                 ]}
               >
-                {med.name}
-              </Text>
-              <Text style={styles.medDosage}>
-                {med.dosage} • {med.frequency}
-              </Text>
+                {med.taken ? (
+                  <Check color={colors.successForeground} size={20} />
+                ) : (
+                  <Pill color={colors.mutedForeground} size={20} />
+                )}
+              </Pressable>
+              <View style={styles.medContent}>
+                <Text
+                  style={[
+                    styles.medName,
+                    med.taken && { textDecorationLine: "line-through", color: colors.success },
+                  ]}
+                >
+                  {med.name}
+                </Text>
+                <Text style={styles.medDosage}>
+                  {med.dosage} • {med.frequency}
+                </Text>
+              </View>
+              <View style={styles.timeBox}>
+                <Clock color={colors.mutedForeground} size={16} />
+                <Text style={styles.timeText}>{med.times[0] ?? "—"}</Text>
+              </View>
             </View>
-            <View style={styles.timeBox}>
-              <Clock color={colors.mutedForeground} size={16} />
-              <Text style={styles.timeText}>{med.times[0]}</Text>
-            </View>
-          </View>
-        ))}
+          ))
+        )}
       </View>
     </View>
   );
@@ -95,6 +125,12 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
+  loadingCard: {
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 28,
+  },
+  loadingLabel: { fontSize: 14, color: colors.mutedForeground },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
   title: { fontSize: 18, fontWeight: "600", color: colors.foreground },
   subtitle: { fontSize: 14, color: colors.mutedForeground, marginTop: 4 },
@@ -113,6 +149,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   list: { gap: 12 },
+  emptyHint: { fontSize: 14, color: colors.mutedForeground, lineHeight: 20 },
   medItem: {
     flexDirection: "row",
     alignItems: "center",

@@ -1,94 +1,149 @@
-import { useEffect, useState } from "react";
-import { View, Text, ScrollView, StyleSheet, Pressable } from "react-native";
+import { useMemo } from "react";
 import {
-  User,
-  Bell,
-  Shield,
-  Phone,
-  Edit,
-  Plus,
-  ChevronRight,
-  Heart,
-} from "lucide-react-native";
-import { Switch } from "react-native";
-import { EmergencyContact } from "@/src/types/health";
-import { colors } from "@/src/theme/colors";
-import { useAuth } from "@/src/context/AuthContext";
-import { ensureEmergencyContactsSeeded, subscribeEmergencyContacts } from "@/src/lib/emergencyContacts";
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+} from "react-native";
+import { Bell, Shield, Phone, Plus, Heart } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ProfileCard, SettingsNavRow, SettingsSection, SettingsSwitchRow } from "../../src/components/settings";
+import { colors } from "../../src/theme/colors";
+import { useAuth } from "../../src/context/AuthContext";
+import { ensureEmergencyContactsSeeded } from "../../src/lib/emergencyContacts";
+import { db } from "../../src/lib/firebase";
+import { useEmergencyContactsSubscription } from "../../src/hooks/useEmergencyContactsSubscription";
+import { useSettingsPreferences } from "../../src/hooks/useSettingsPreferences";
+
+const NOTIFICATION_ITEMS = [
+  {
+    key: "medicationReminders" as const,
+    label: "Medication Reminders",
+    desc: "Get notified when it's time to take medication",
+  },
+  {
+    key: "appointmentReminders" as const,
+    label: "Appointment Reminders",
+    desc: "Receive alerts before scheduled appointments",
+  },
+  {
+    key: "refillAlerts" as const,
+    label: "Refill Alerts",
+    desc: "Be notified when medication supply is low",
+  },
+  {
+    key: "emergencyAlerts" as const,
+    label: "Emergency Alerts",
+    desc: "Critical notifications for emergencies",
+  },
+];
+
+const ACCESSIBILITY_ITEMS = [
+  { key: "largeText" as const, label: "Large Text", desc: "Increase font size for better readability" },
+  {
+    key: "highContrast" as const,
+    label: "High Contrast",
+    desc: "Enhance visual contrast for visibility on this screen",
+  },
+];
+
+const SECURITY_ITEMS = [
+  { label: "Change Password", desc: "Update your account password" },
+  { label: "Two-Factor Authentication", desc: "Add an extra layer of security" },
+  { label: "Biometric Login", desc: "Use fingerprint or face recognition" },
+];
 
 export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
-  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
-  const [settings, setSettings] = useState({
-    medicationReminders: true,
-    appointmentReminders: true,
-    refillAlerts: true,
-    emergencyAlerts: true,
-    largeText: false,
-    highContrast: false,
-  });
+  const { preferences, setPreference, isHydrated } = useSettingsPreferences();
+  const { contacts } = useEmergencyContactsSubscription(user?.uid);
 
-  const toggleSetting = (key: keyof typeof settings) => {
-    setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+  const largeText = preferences.largeText;
+  const highContrast = preferences.highContrast;
+
+  const fs = useMemo(() => (base: number) => (largeText ? Math.round(base * 1.12) : base), [largeText]);
 
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "NA";
+  const displayContacts = user?.uid ? contacts : [];
 
-  useEffect(() => {
-    if (!user?.uid) {
-      return;
-    }
+  const containerStyle = useMemo(
+    () => [
+      styles.container,
+      highContrast && { backgroundColor: "#f0f0f0" },
+    ],
+    [highContrast]
+  );
 
-    ensureEmergencyContactsSeeded(user.uid).catch(() => {
-      // Non-blocking seed attempt for first-run accounts.
-    });
+  const headerTitleStyle = useMemo(
+    () => [styles.title, { fontSize: fs(24) }, highContrast && { color: "#000" }],
+    [fs, highContrast]
+  );
 
-    const unsubscribe = subscribeEmergencyContacts(user.uid, setEmergencyContacts);
-    return unsubscribe;
-  }, [user?.uid]);
-
-  const displayContacts = user?.uid ? emergencyContacts : [];
+  const headerSubtitleStyle = useMemo(
+    () => [styles.subtitle, { fontSize: fs(14) }],
+    [fs]
+  );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView style={containerStyle} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
-        <Text style={styles.subtitle}>Manage your preferences and account</Text>
+        <Text style={headerTitleStyle}>Settings</Text>
+        <Text style={headerSubtitleStyle}>Manage your preferences and account</Text>
       </View>
 
-      <View style={styles.section}>
-        <View style={styles.profileRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{user?.email ?? "No user found"}</Text>
-            <Text style={styles.profileEmail}>Firebase authenticated account</Text>
-          </View>
-          <Pressable style={styles.editButton} onPress={logout}>
-            <Edit color={colors.foreground} size={16} />
-            <Text style={styles.editButtonText}>Logout</Text>
-          </Pressable>
-        </View>
-      </View>
+      <SettingsSection highContrast={highContrast}>
+        <ProfileCard
+          email={user?.email ?? "No user found"}
+          initials={initials}
+          onSignOut={logout}
+          largeText={largeText}
+          highContrast={highContrast}
+        />
+      </SettingsSection>
 
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
+      <SettingsSection
+        highContrast={highContrast}
+        variant="default"
+        icon={
           <View style={[styles.sectionIcon, { backgroundColor: colors.destructive + "20" }]}>
             <Phone color={colors.destructive} size={20} />
           </View>
-          <View>
-            <Text style={styles.sectionTitle}>Emergency Contacts</Text>
-            <Text style={styles.sectionSubtitle}>People to notify in emergencies</Text>
-          </View>
-          <Pressable style={styles.addButton} onPress={() => user?.uid && ensureEmergencyContactsSeeded(user.uid)}>
+        }
+        title="Emergency Contacts"
+        subtitle="People to notify in emergencies"
+        headerRight={
+          <Pressable
+            style={styles.addButton}
+            onPress={() => user?.uid && ensureEmergencyContactsSeeded(user.uid)}
+            disabled={!user?.uid}
+          >
             <Plus color="#fff" size={16} />
             <Text style={styles.addButtonText}>Sync</Text>
           </Pressable>
-        </View>
+        }
+      >
+        {user?.uid && displayContacts.length === 0 ? (
+          <View style={[styles.emptyState, highContrast && styles.emptyStateHighContrast]}>
+            <Text style={[styles.emptyTitle, { fontSize: fs(15) }]}>No contacts yet</Text>
+            <Text style={[styles.emptyDesc, { fontSize: fs(14) }]}>
+              {db
+                ? "Add contacts in your account or tap Sync to seed defaults if available."
+                : "Firestore is disabled in this build. Tap Sync to load sample contacts for development."}
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.contactsList}>
           {displayContacts.map((contact) => (
-            <View key={contact.id} style={styles.contactItem}>
+            <View
+              key={contact.id}
+              style={[
+                styles.contactItem,
+                highContrast && { borderWidth: 2, borderColor: colors.foreground },
+              ]}
+            >
               <View style={styles.contactLeft}>
                 <View style={styles.contactAvatar}>
                   <Text style={styles.contactAvatarText}>
@@ -99,173 +154,105 @@ export default function SettingsScreen() {
                   </Text>
                 </View>
                 <View>
-                  <Text style={styles.contactName}>{contact.name}</Text>
-                  <Text style={styles.contactRelation}>{contact.relationship}</Text>
+                  <Text style={[styles.contactName, { fontSize: fs(16) }]}>{contact.name}</Text>
+                  <Text style={[styles.contactRelation, { fontSize: fs(14) }]}>{contact.relationship}</Text>
                 </View>
               </View>
-              <Text style={styles.contactPhone}>{contact.phone}</Text>
+              <Text style={[styles.contactPhone, { fontSize: fs(14) }]}>{contact.phone}</Text>
             </View>
           ))}
         </View>
-      </View>
+      </SettingsSection>
 
-      <View style={styles.section}>
-        <View style={styles.sectionHeaderRow}>
-          <View style={[styles.sectionIcon, { backgroundColor: colors.primary + "20" }]}>
-            <Bell color={colors.primary} size={20} />
-          </View>
-          <View>
-            <Text style={styles.sectionTitle}>Notifications</Text>
-            <Text style={styles.sectionSubtitle}>Manage your alert preferences</Text>
-          </View>
+      {isHydrated ? (
+        <>
+          <SettingsSection
+            highContrast={highContrast}
+            variant="headerRow"
+            icon={
+              <View style={[styles.sectionIcon, { backgroundColor: colors.primary + "20" }]}>
+                <Bell color={colors.primary} size={20} />
+              </View>
+            }
+            title="Notifications"
+            subtitle="Manage your alert preferences"
+          >
+            {NOTIFICATION_ITEMS.map((item) => (
+              <SettingsSwitchRow
+                key={item.key}
+                label={item.label}
+                description={item.desc}
+                value={preferences[item.key]}
+                onValueChange={(v) => setPreference(item.key, v)}
+                largeText={largeText}
+                highContrast={highContrast}
+              />
+            ))}
+          </SettingsSection>
+
+          <SettingsSection
+            highContrast={highContrast}
+            variant="headerRow"
+            icon={
+              <View style={[styles.sectionIcon, { backgroundColor: colors.info + "20" }]}>
+                <Heart color={colors.info} size={20} />
+              </View>
+            }
+            title="Accessibility"
+            subtitle="Customize your experience"
+          >
+            {ACCESSIBILITY_ITEMS.map((item) => (
+              <SettingsSwitchRow
+                key={item.key}
+                label={item.label}
+                description={item.desc}
+                value={preferences[item.key]}
+                onValueChange={(v) => setPreference(item.key, v)}
+                largeText={largeText}
+                highContrast={highContrast}
+              />
+            ))}
+          </SettingsSection>
+        </>
+      ) : (
+        <View style={styles.prefsLoadingCard}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.prefsLoadingText}>Loading preferences…</Text>
         </View>
-        {[
-          {
-            key: "medicationReminders" as const,
-            label: "Medication Reminders",
-            desc: "Get notified when it's time to take medication",
-          },
-          {
-            key: "appointmentReminders" as const,
-            label: "Appointment Reminders",
-            desc: "Receive alerts before scheduled appointments",
-          },
-          {
-            key: "refillAlerts" as const,
-            label: "Refill Alerts",
-            desc: "Be notified when medication supply is low",
-          },
-          {
-            key: "emergencyAlerts" as const,
-            label: "Emergency Alerts",
-            desc: "Critical notifications for emergencies",
-          },
-        ].map((item) => (
-          <View key={item.key} style={styles.settingRow}>
-            <View>
-              <Text style={styles.settingLabel}>{item.label}</Text>
-              <Text style={styles.settingDesc}>{item.desc}</Text>
-            </View>
-            <Switch
-              value={settings[item.key]}
-              onValueChange={() => toggleSetting(item.key)}
-              trackColor={{ false: colors.muted, true: colors.primary + "60" }}
-              thumbColor={settings[item.key] ? colors.primary : colors.mutedForeground}
-            />
-          </View>
-        ))}
-      </View>
+      )}
 
-      <View style={styles.section}>
-        <View style={styles.sectionHeaderRow}>
-          <View style={[styles.sectionIcon, { backgroundColor: colors.info + "20" }]}>
-            <Heart color={colors.info} size={20} />
-          </View>
-          <View>
-            <Text style={styles.sectionTitle}>Accessibility</Text>
-            <Text style={styles.sectionSubtitle}>Customize your experience</Text>
-          </View>
-        </View>
-        {[
-          { key: "largeText" as const, label: "Large Text", desc: "Increase font size for better readability" },
-          {
-            key: "highContrast" as const,
-            label: "High Contrast",
-            desc: "Enhance visual contrast for visibility",
-          },
-        ].map((item) => (
-          <View key={item.key} style={styles.settingRow}>
-            <View>
-              <Text style={styles.settingLabel}>{item.label}</Text>
-              <Text style={styles.settingDesc}>{item.desc}</Text>
-            </View>
-            <Switch
-              value={settings[item.key]}
-              onValueChange={() => toggleSetting(item.key)}
-              trackColor={{ false: colors.muted, true: colors.primary + "60" }}
-              thumbColor={settings[item.key] ? colors.primary : colors.mutedForeground}
-            />
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.sectionHeaderRow}>
+      <SettingsSection
+        highContrast={highContrast}
+        variant="headerRow"
+        icon={
           <View style={[styles.sectionIcon, { backgroundColor: colors.success + "20" }]}>
             <Shield color={colors.success} size={20} />
           </View>
-          <View>
-            <Text style={styles.sectionTitle}>Security</Text>
-            <Text style={styles.sectionSubtitle}>Protect your account</Text>
-          </View>
-        </View>
-        {[
-          { label: "Change Password", desc: "Update your account password" },
-          {
-            label: "Two-Factor Authentication",
-            desc: "Add an extra layer of security",
-          },
-          {
-            label: "Biometric Login",
-            desc: "Use fingerprint or face recognition",
-          },
-        ].map((item) => (
-          <Pressable key={item.label} style={styles.securityRow}>
-            <View>
-              <Text style={styles.settingLabel}>{item.label}</Text>
-              <Text style={styles.settingDesc}>{item.desc}</Text>
-            </View>
-            <ChevronRight color={colors.mutedForeground} size={20} />
-          </Pressable>
+        }
+        title="Security"
+        subtitle="Protect your account"
+      >
+        {SECURITY_ITEMS.map((item) => (
+          <SettingsNavRow
+            key={item.label}
+            label={item.label}
+            description={item.desc}
+            largeText={largeText}
+            highContrast={highContrast}
+            comingSoon
+          />
         ))}
-      </View>
+      </SettingsSection>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 16, paddingBottom: 32 },
-  header: { marginBottom: 24 },
-  title: { fontSize: 24, fontWeight: "700", color: colors.foreground },
-  subtitle: { fontSize: 14, color: colors.mutedForeground, marginTop: 4 },
-  section: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  profileRow: { flexDirection: "row", alignItems: "center", gap: 16 },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarText: { fontSize: 24, fontWeight: "700", color: "#fff" },
-  profileInfo: { flex: 1 },
-  profileName: { fontSize: 18, fontWeight: "600", color: colors.foreground },
-  profileEmail: { fontSize: 14, color: colors.mutedForeground, marginTop: 4 },
-  editButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  editButtonText: { fontSize: 14, fontWeight: "500", color: colors.foreground },
-  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
-  sectionHeaderRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
+  content: { paddingHorizontal: 16, paddingTop: 8 },
+  header: { marginBottom: 20 },
+  title: { fontWeight: "700", color: colors.foreground, letterSpacing: -0.3 },
+  subtitle: { color: colors.mutedForeground, marginTop: 6, lineHeight: 20 },
   sectionIcon: {
     width: 40,
     height: 40,
@@ -273,8 +260,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  sectionTitle: { fontSize: 16, fontWeight: "600", color: colors.foreground },
-  sectionSubtitle: { fontSize: 14, color: colors.mutedForeground, marginTop: 2 },
   addButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -287,15 +272,31 @@ const styles = StyleSheet.create({
   },
   addButtonText: { fontSize: 14, fontWeight: "500", color: "#fff" },
   contactsList: { gap: 12 },
-  contactItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  emptyState: {
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.background,
+    borderStyle: "dashed",
+    backgroundColor: colors.muted,
+    marginBottom: 12,
+  },
+  emptyStateHighContrast: {
+    borderColor: colors.foreground,
+    borderStyle: "solid",
+    borderWidth: 2,
+  },
+  emptyTitle: { fontWeight: "600", color: colors.foreground, marginBottom: 4 },
+  emptyDesc: { color: colors.mutedForeground, lineHeight: 20 },
+  contactItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.muted,
   },
   contactLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
   contactAvatar: {
@@ -307,31 +308,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   contactAvatarText: { fontSize: 14, fontWeight: "600", color: colors.mutedForeground },
-  contactName: { fontSize: 16, fontWeight: "500", color: colors.foreground },
-  contactRelation: { fontSize: 14, color: colors.mutedForeground, marginTop: 2 },
-  contactPhone: { fontSize: 14, color: colors.mutedForeground },
-  settingRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  contactName: { fontWeight: "500", color: colors.foreground },
+  contactRelation: { color: colors.mutedForeground, marginTop: 2 },
+  contactPhone: { color: colors.mutedForeground },
+  prefsLoadingCard: {
+    paddingVertical: 28,
+    paddingHorizontal: 20,
     alignItems: "center",
-    padding: 16,
-    borderRadius: 12,
+    gap: 12,
+    marginBottom: 16,
+    backgroundColor: colors.card,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.background,
-    marginBottom: 12,
   },
-  settingLabel: { fontSize: 16, fontWeight: "500", color: colors.foreground },
-  settingDesc: { fontSize: 14, color: colors.mutedForeground, marginTop: 2 },
-  securityRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-    marginBottom: 12,
-  },
+  prefsLoadingText: { fontSize: 14, color: colors.mutedForeground },
 });
