@@ -107,17 +107,13 @@ export async function addEmergencyContact(
   contact: Omit<EmergencyContact, "id">
 ) {
   if (!db) {
-    return;
+    throw new Error("Firestore disabled");
   }
-  try {
-    await addDoc(contactsCollection(uid), {
-      ...contact,
-      email: contact.email ?? null,
-      createdAt: serverTimestamp(),
-    });
-  } catch {
-    // Firestore may be unavailable for this project.
-  }
+  await addDoc(contactsCollection(uid), {
+    ...contact,
+    email: contact.email ?? null,
+    createdAt: serverTimestamp(),
+  });
 }
 
 export async function updateEmergencyContact(
@@ -126,28 +122,20 @@ export async function updateEmergencyContact(
   contact: Omit<EmergencyContact, "id">
 ) {
   if (!db) {
-    return;
+    throw new Error("Firestore disabled");
   }
-  try {
-    await updateDoc(doc(db, "users", uid, "emergencyContacts", contactId), {
-      ...contact,
-      email: contact.email ?? null,
-      updatedAt: serverTimestamp(),
-    });
-  } catch {
-    // Firestore may be unavailable for this project.
-  }
+  await updateDoc(doc(db, "users", uid, "emergencyContacts", contactId), {
+    ...contact,
+    email: contact.email ?? null,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function deleteEmergencyContact(uid: string, contactId: string) {
   if (!db) {
-    return;
+    throw new Error("Firestore disabled");
   }
-  try {
-    await deleteDoc(doc(db, "users", uid, "emergencyContacts", contactId));
-  } catch {
-    // Firestore may be unavailable for this project.
-  }
+  await deleteDoc(doc(db, "users", uid, "emergencyContacts", contactId));
 }
 
 export async function logEmergencyEvent(uid: string, payload: Record<string, unknown>) {

@@ -1,4 +1,4 @@
-import { Medication, Appointment, EmergencyContact, HealthMetric } from '@/types/health';
+import { Medication, Appointment, EmergencyContact, HealthMetric } from "@/src/types/health";
 
 export const mockMedications: Medication[] = [
   {
@@ -110,12 +110,12 @@ export const mockEmergencyContacts: EmergencyContact[] = [
 ];
 
 export const mockHealthMetrics: HealthMetric[] = [
-  { id: '1', type: 'blood_pressure', value: '120/80', unit: 'mmHg', date: '2026-01-19', time: '08:00' },
-  { id: '2', type: 'heart_rate', value: '72', unit: 'bpm', date: '2026-01-19', time: '08:00' },
-  { id: '3', type: 'blood_sugar', value: '95', unit: 'mg/dL', date: '2026-01-19', time: '07:30' },
-  { id: '4', type: 'weight', value: '175', unit: 'lbs', date: '2026-01-18', time: '07:00' },
-  { id: '5', type: 'blood_pressure', value: '118/78', unit: 'mmHg', date: '2026-01-18', time: '08:00' },
-  { id: '6', type: 'heart_rate', value: '68', unit: 'bpm', date: '2026-01-18', time: '08:00' },
-  { id: '7', type: 'blood_pressure', value: '122/82', unit: 'mmHg', date: '2026-01-17', time: '08:15' },
-  { id: '8', type: 'heart_rate', value: '75', unit: 'bpm', date: '2026-01-17', time: '08:15' },
+  { id: "1", type: "blood_pressure", systolic: 120, diastolic: 80, unit: "mmHg", recordedAt: "2026-01-19T08:00:00.000Z" },
+  { id: "2", type: "heart_rate", value: 72, unit: "bpm", recordedAt: "2026-01-19T08:00:00.000Z" },
+  { id: "3", type: "blood_sugar", value: 95, unit: "mg/dL", recordedAt: "2026-01-19T07:30:00.000Z" },
+  { id: "4", type: "weight", value: 175, unit: "lbs", recordedAt: "2026-01-18T07:00:00.000Z" },
+  { id: "5", type: "blood_pressure", systolic: 118, diastolic: 78, unit: "mmHg", recordedAt: "2026-01-18T08:00:00.000Z" },
+  { id: "6", type: "heart_rate", value: 68, unit: "bpm", recordedAt: "2026-01-18T08:00:00.000Z" },
+  { id: "7", type: "blood_pressure", systolic: 122, diastolic: 82, unit: "mmHg", recordedAt: "2026-01-17T08:15:00.000Z" },
+  { id: "8", type: "heart_rate", value: 75, unit: "bpm", recordedAt: "2026-01-17T08:15:00.000Z" },
 ];

@@ -1,8 +1,10 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { HeartPulse, Activity, Droplets, Scale, ChevronRight } from "lucide-react-native";
-import { mockHealthMetrics } from "@/src/data/mockData";
 import { colors } from "@/src/theme/colors";
+import { useTheme } from "@/src/context/ThemeContext";
+import { useAuth } from "@/src/context/AuthContext";
+import { useHealthMetrics } from "@/src/hooks/useHealthMetrics";
 
 const metricConfig: Record<
   string,
@@ -25,12 +27,15 @@ const colorMap: Record<string, { bg: string; text: string }> = {
 
 export default function HealthOverview() {
   const router = useRouter();
+  const { isDark } = useTheme();
+  const { user } = useAuth();
+  const { metrics } = useHealthMetrics(user?.uid);
   const latestMetrics = Object.keys(metricConfig).map((type) => {
-    return mockHealthMetrics.find((m) => m.type === type) || null;
+    return metrics.find((m) => m.type === type) || null;
   }).filter(Boolean);
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card }]}>
+    <View style={[styles.card, { backgroundColor: isDark ? "#050505" : colors.card }]}>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Health Overview</Text>
@@ -48,18 +53,24 @@ export default function HealthOverview() {
           const config = metricConfig[metric.type];
           const colors_ = colorMap[config.colorClass] || colorMap.primary;
           const Icon = config.icon;
+          const value =
+            metric.type === "blood_pressure"
+              ? `${metric.systolic ?? "--"}/${metric.diastolic ?? "--"}`
+              : metric.value != null
+                ? String(metric.value)
+                : "--";
           return (
-            <View key={metric.id} style={styles.metricCard}>
+            <View key={metric.id} style={[styles.metricCard, isDark && { backgroundColor: "#111111", borderColor: "#262626" }]}>
               <View style={[styles.iconBox, { backgroundColor: colors_.bg }]}>
                 <Icon color={colors_.text} size={16} />
               </View>
               <Text style={styles.metricLabel}>{config.label}</Text>
               <Text style={styles.metricValue}>
-                {metric.value}
-                <Text style={styles.metricUnit}> {metric.unit}</Text>
+                {value}
+                <Text style={styles.metricUnit}> {metric.unit ?? ""}</Text>
               </Text>
               <Text style={styles.metricDate}>
-                {metric.date} at {metric.time}
+                {metric.recordedAt.slice(0, 10)} at {metric.recordedAt.slice(11, 16)}
               </Text>
             </View>
           );

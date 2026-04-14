@@ -1,6 +1,12 @@
 import { View, Text, StyleSheet } from "react-native";
 import { Pill, Calendar, HeartPulse, Clock } from "lucide-react-native";
 import { colors } from "@/src/theme/colors";
+import { useTheme } from "@/src/context/ThemeContext";
+import { useAuth } from "@/src/context/AuthContext";
+import { useMedications } from "@/src/hooks/useMedications";
+import { useAppointments } from "@/src/hooks/useAppointments";
+import { useHealthMetrics } from "@/src/hooks/useHealthMetrics";
+import { isToday, parseISO } from "date-fns";
 
 interface StatCardProps {
   icon: React.ElementType;
@@ -18,14 +24,15 @@ const colorMap = {
 };
 
 function StatCard({ icon: Icon, label, value, subtitle, colorClass }: StatCardProps) {
+  const { isDark } = useTheme();
   const c = colorMap[colorClass];
   return (
-    <View style={[styles.card, { backgroundColor: colors.card }]}>
+    <View style={[styles.card, { backgroundColor: isDark ? "#050505" : colors.card }]}>
       <View style={styles.cardContent}>
         <View>
-          <Text style={styles.label}>{label}</Text>
-          <Text style={styles.value}>{value}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
+          <Text style={[styles.label, isDark && { color: "#a3a3a3" }]}>{label}</Text>
+          <Text style={[styles.value, isDark && { color: "#f8fafc" }]}>{value}</Text>
+          <Text style={[styles.subtitle, isDark && { color: "#a3a3a3" }]}>{subtitle}</Text>
         </View>
         <View style={[styles.iconBox, { backgroundColor: c.bg }]}>
           <Icon color={c.text} size={24} />
@@ -36,33 +43,49 @@ function StatCard({ icon: Icon, label, value, subtitle, colorClass }: StatCardPr
 }
 
 export default function QuickStats() {
+  const { user } = useAuth();
+  const { medications } = useMedications(user?.uid);
+  const { appointments } = useAppointments(user?.uid);
+  const { metrics } = useHealthMetrics(user?.uid);
+  const todayMeds = medications.length;
+  const takenMeds = medications.filter((m) => m.taken).length;
+  const nextAppointment = appointments[0];
+  const latestBloodPressure = metrics.find((m) => m.type === "blood_pressure");
+  const streak = medications.length
+    ? medications.filter((m) => m.taken).length
+    : 0;
+
   const stats = [
     {
       icon: Pill,
       label: "Medications Today",
-      value: "4",
-      subtitle: "2 completed, 2 remaining",
+      value: String(todayMeds),
+      subtitle: `${takenMeds} completed, ${Math.max(todayMeds - takenMeds, 0)} remaining`,
       colorClass: "primary" as const,
     },
     {
       icon: Calendar,
       label: "Appointments",
-      value: "3",
-      subtitle: "Next: Jan 22 at 10:00 AM",
+      value: String(appointments.length),
+      subtitle: nextAppointment ? `Next: ${nextAppointment.date} at ${nextAppointment.time}` : "No upcoming appointment",
       colorClass: "info" as const,
     },
     {
       icon: HeartPulse,
       label: "Blood Pressure",
-      value: "120/80",
-      subtitle: "Last checked today",
+      value: latestBloodPressure ? `${latestBloodPressure.systolic ?? "--"}/${latestBloodPressure.diastolic ?? "--"}` : "--/--",
+      subtitle: latestBloodPressure
+        ? isToday(parseISO(latestBloodPressure.recordedAt))
+          ? "Last checked today"
+          : `Last checked ${latestBloodPressure.recordedAt.slice(0, 10)}`
+        : "No readings yet",
       colorClass: "success" as const,
     },
     {
       icon: Clock,
       label: "Streak",
-      value: "7",
-      subtitle: "Days of adherence",
+      value: String(streak),
+      subtitle: "Taken medications",
       colorClass: "warning" as const,
     },
   ];

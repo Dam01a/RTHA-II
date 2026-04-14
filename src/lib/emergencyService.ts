@@ -90,15 +90,16 @@ async function tryProviderSms(payload: EmergencyAlertPayload, contacts: Emergenc
 async function fallbackToDeviceSms(phones: string[], message: string) {
   const available = await SMS.isAvailableAsync();
   if (!available || phones.length === 0) {
-    return { sent: false };
+    return { sent: false, sentPhones: [] as string[] };
   }
 
   await SMS.sendSMSAsync(phones, message);
-  return { sent: true };
+  return { sent: true, sentPhones: phones };
 }
 
 export async function triggerEmergencyAlert({ uid, email }: TriggerArgs): Promise<EmergencyDispatchResult> {
   const contacts = await listEmergencyContacts(uid);
+  const allPhones = contacts.map((contact) => sanitizePhone(contact.phone)).filter(Boolean);
   const timestamp = new Date().toISOString();
   const locationResult = await captureLocation();
   const locationSummary = formatLocationSummary(locationResult.location, locationResult.locationShared);
@@ -114,16 +115,31 @@ export async function triggerEmergencyAlert({ uid, email }: TriggerArgs): Promis
 
   let status: EmergencyDispatchResult["status"] = "failed";
   let contactedPhones: string[] = [];
-  let failedPhones: string[] = contacts.map((contact) => sanitizePhone(contact.phone));
+  let failedPhones: string[] = [...allPhones];
 
   try {
     const providerResult = await tryProviderSms(payload, contacts);
     status = providerResult.status;
-    contactedPhones = providerResult.contactedPhones;
-    failedPhones = providerResult.failedPhones;
+    contactedPhones = providerResult.contactedPhones.map(sanitizePhone).filter(Boolean);
+    failedPhones = providerResult.failedPhones.map(sanitizePhone).filter(Boolean);
+
+    if (failedPhones.length > 0) {
+      const fallback = await fallbackToDeviceSms(failedPhones, message);
+      if (fallback.sent) {
+        contactedPhones = Array.from(new Set([...contactedPhones, ...fallback.sentPhones]));
+        failedPhones = failedPhones.filter((phone) => !fallback.sentPhones.includes(phone));
+        status = failedPhones.length === 0 ? "sent" : "partial_failure";
+      }
+    }
   } catch {
-    const fallback = await fallbackToDeviceSms(failedPhones, message);
-    status = fallback.sent ? "partial_failure" : "failed";
+    const fallback = await fallbackToDeviceSms(allPhones, message);
+    if (fallback.sent) {
+      status = "sent";
+      contactedPhones = Array.from(new Set(fallback.sentPhones));
+      failedPhones = allPhones.filter((phone) => !fallback.sentPhones.includes(phone));
+    } else {
+      status = "failed";
+    }
   }
 
   const result: EmergencyDispatchResult = {

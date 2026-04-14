@@ -1,9 +1,11 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Calendar, MapPin, User, ChevronRight, Clock } from "lucide-react-native";
-import { mockAppointments } from "@/src/data/mockData";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { colors } from "@/src/theme/colors";
+import { useTheme } from "@/src/context/ThemeContext";
+import { useAuth } from "@/src/context/AuthContext";
+import { useAppointments } from "@/src/hooks/useAppointments";
 
 const typeColors: Record<string, { bg: string; text: string }> = {
   checkup: { bg: colors.primary + "20", text: colors.primary },
@@ -22,13 +24,16 @@ function formatAppointmentDate(dateStr: string) {
 
 export default function UpcomingAppointments() {
   const router = useRouter();
+  const { isDark } = useTheme();
+  const { user } = useAuth();
+  const { appointments } = useAppointments(user?.uid);
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card }]}>
+    <View style={[styles.card, { backgroundColor: isDark ? "#050505" : colors.card }]}>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Upcoming Appointments</Text>
-          <Text style={styles.subtitle}>{mockAppointments.length} scheduled</Text>
+          <Text style={styles.subtitle}>{appointments.length} scheduled</Text>
         </View>
         <Pressable onPress={() => router.push("/appointments")} style={styles.viewAll}>
           <Text style={styles.viewAllText}>View All</Text>
@@ -37,10 +42,10 @@ export default function UpcomingAppointments() {
       </View>
 
       <View style={styles.list}>
-        {mockAppointments.map((apt) => {
+        {appointments.map((apt) => {
           const tc = typeColors[apt.type] || typeColors.other;
           return (
-            <View key={apt.id} style={styles.aptItem}>
+            <View key={apt.id} style={[styles.aptItem, isDark && { backgroundColor: "#111111", borderColor: "#262626" }]}>
               <View style={styles.dateBox}>
                 <Text style={styles.dateDay}>{format(parseISO(apt.date), "d")}</Text>
                 <Text style={styles.dateMonth}>{format(parseISO(apt.date), "MMM")}</Text>
@@ -75,6 +80,9 @@ export default function UpcomingAppointments() {
             </View>
           );
         })}
+        {appointments.length === 0 ? (
+          <Text style={styles.metaText}>No appointments yet.</Text>
+        ) : null}
       </View>
     </View>
   );

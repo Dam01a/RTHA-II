@@ -35,13 +35,20 @@ export interface EmergencyContact {
 
 export interface HealthMetric {
   id: string;
-  type: 'blood_pressure' | 'heart_rate' | 'blood_sugar' | 'weight' | 'temperature';
-  value: string;
-  unit: string;
-  date: string;
-  time: string;
+  type: "blood_pressure" | "heart_rate" | "blood_sugar" | "weight" | "temperature";
+  /** ISO-8601 timestamp when measurement was taken */
+  recordedAt: string;
+  /** Scalar value for non-blood-pressure metrics */
+  value?: number;
+  /** Unit associated with scalar value */
+  unit?: string;
+  /** Blood pressure-specific fields */
+  systolic?: number;
+  diastolic?: number;
   notes?: string;
 }
+
+export type HealthMetricInput = Omit<HealthMetric, "id">;
 
 export interface User {
   id: string;

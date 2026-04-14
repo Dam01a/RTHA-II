@@ -1,16 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
-import { View, Text, StyleSheet, Pressable, Modal, Linking } from "react-native";
+import { View, Text, StyleSheet, Pressable, Modal, Linking, Alert } from "react-native";
 import { AlertTriangle, Phone, X, MapPin } from "lucide-react-native";
 import { colors } from "@/src/theme/colors";
 import { useAuth } from "@/src/context/AuthContext";
+import { useTheme } from "@/src/context/ThemeContext";
 import { triggerEmergencyAlert } from "@/src/lib/emergencyService";
 import type { EmergencyDispatchResult } from "@/src/types/emergency";
+import { useEmergencyContactsSubscription } from "@/src/hooks/useEmergencyContactsSubscription";
 
 const COUNTDOWN_DURATION = 5;
 const MIN_TRIGGER_INTERVAL_MS = 30_000;
 
 export default function EmergencyButton() {
   const { user } = useAuth();
+  const { isDark } = useTheme();
+  const { contacts } = useEmergencyContactsSubscription(user?.uid);
   const [isActivated, setIsActivated] = useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_DURATION);
   const [isDispatching, setIsDispatching] = useState(false);
@@ -44,6 +48,10 @@ export default function EmergencyButton() {
     setError(null);
     setLastTriggeredAt(Date.now());
 
+    if (contacts.length === 0) {
+      setError("No emergency contacts configured. 911 call option remains available.");
+    }
+
     triggerEmergencyAlert({
       uid: user.uid,
       email: user.email ?? null,
@@ -51,16 +59,25 @@ export default function EmergencyButton() {
       .then((dispatchResult) => setResult(dispatchResult))
       .catch(() => setError("Unable to deliver emergency alert right now."))
       .finally(() => setIsDispatching(false));
-  }, [isDispatching, lastTriggeredAt, result, user]);
+  }, [contacts.length, isDispatching, lastTriggeredAt, result, user]);
 
   const callEmergencyServices = useCallback(async () => {
-    const url = "tel:911";
-    const supported = await Linking.canOpenURL(url);
-    if (!supported) {
-      setError("Dialer unavailable on this device.");
-      return;
-    }
-    await Linking.openURL(url);
+    Alert.alert("Call Emergency Services", "Do you want to open the dialer and call 911 now?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Call 911",
+        style: "destructive",
+        onPress: async () => {
+          const url = "tel:911";
+          const supported = await Linking.canOpenURL(url);
+          if (!supported) {
+            setError("Dialer unavailable on this device.");
+            return;
+          }
+          await Linking.openURL(url);
+        },
+      },
+    ]);
   }, []);
 
   useEffect(() => {
@@ -71,9 +88,7 @@ export default function EmergencyButton() {
     const timer: ReturnType<typeof setInterval> = setInterval(() => {
       setCountdown((prev) => {
         if (!Number.isFinite(prev) || prev <= 1) {
-          setTimeout(() => {
-            triggerEmergency();
-          }, 0);
+          triggerEmergency();
           return 0;
         }
         return prev - 1;
@@ -81,7 +96,7 @@ export default function EmergencyButton() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isActivated, isDispatching, result, countdown, triggerEmergency]);
+  }, [isActivated, isDispatching, result, triggerEmergency]);
 
   return (
     <>
@@ -106,7 +121,7 @@ export default function EmergencyButton() {
 
       <Modal visible={isActivated} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, isDark && { backgroundColor: "#050505" }]}>
             {!result ? (
               <View style={styles.countdownContent}>
                 <View style={styles.circleContainer}>
@@ -135,6 +150,7 @@ export default function EmergencyButton() {
                 <Text style={styles.helpSubtitle}>
                   Alert status: {result.status.replace("_", " ")}
                 </Text>
+                <Text style={styles.timestampText}>Triggered at: {new Date(result.timestamp).toLocaleString()}</Text>
                 <View style={styles.locationBox}>
                   <MapPin color="#fff" size={16} />
                   <Text style={styles.locationText}>{result.locationSummary}</Text>
@@ -278,6 +294,7 @@ const styles = StyleSheet.create({
   },
   helpTitle: { fontSize: 24, fontWeight: "700", color: "#fff", marginBottom: 8 },
   helpSubtitle: { fontSize: 14, color: "rgba(255,255,255,0.8)", marginBottom: 24 },
+  timestampText: { fontSize: 12, color: "rgba(255,255,255,0.75)", marginBottom: 12 },
   locationBox: {
     flexDirection: "row",
     alignItems: "center",

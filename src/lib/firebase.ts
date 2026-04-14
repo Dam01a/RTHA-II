@@ -13,7 +13,6 @@ const firebaseConfig = {
 };
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const firestoreEnabled = process.env.EXPO_PUBLIC_ENABLE_FIRESTORE === "true";
 
 let auth: Auth;
 try {
@@ -25,4 +24,4 @@ try {
 }
 
 export { app, auth };
-export const db: Firestore | null = firestoreEnabled ? getFirestore(app) : null;
+export const db: Firestore = getFirestore(app);

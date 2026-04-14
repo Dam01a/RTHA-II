@@ -1,18 +1,35 @@
 import { HeartPulse, Pill, Calendar, Activity, Settings } from "lucide-react-native";
 import { Tabs } from "expo-router";
-import { colors } from "@/src/theme/colors";
+import { useTheme } from "@/src/context/ThemeContext";
 
 export default function TabLayout() {
+  const { isDark } = useTheme();
+  const palette = isDark
+    ? {
+        background: "#0a0a0a",
+        border: "#2a2a2a",
+        text: "#f3f4f6",
+        active: "#2aa198",
+        inactive: "#8a8a8a",
+      }
+    : {
+        background: "#ffffff",
+        border: "#e5e7eb",
+        text: "#0f172a",
+        active: "#0f766e",
+        inactive: "#64748b",
+      };
+
   return (
     <Tabs
       screenOptions={{
         headerShown: true,
-        headerStyle: { backgroundColor: colors.card },
-        headerTitleStyle: { fontWeight: "700", fontSize: 18, color: colors.foreground },
+        headerStyle: { backgroundColor: palette.background },
+        headerTitleStyle: { fontWeight: "700", fontSize: 18, color: palette.text },
         headerShadowVisible: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.mutedForeground,
-        tabBarStyle: { backgroundColor: colors.card, borderTopColor: colors.border },
+        tabBarActiveTintColor: palette.active,
+        tabBarInactiveTintColor: palette.inactive,
+        tabBarStyle: { backgroundColor: palette.background, borderTopColor: palette.border },
         tabBarLabelStyle: { fontSize: 11, fontWeight: "500" },
       }}
     >

@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, Switch } from "react-native";
 import { colors } from "../../theme/colors";
+import { useTheme } from "../../context/ThemeContext";
 
 type SettingsSwitchRowProps = {
   label: string;
@@ -18,14 +19,16 @@ export function SettingsSwitchRow({
   largeText = false,
   highContrast = false,
 }: SettingsSwitchRowProps) {
+  const { isDark } = useTheme();
   const fs = (base: number) => (largeText ? Math.round(base * 1.12) : base);
   const borderColor = highContrast ? colors.foreground : colors.border;
+  const rowBorderWidth = highContrast ? 2 : isDark ? 0 : 1;
 
   return (
-    <View style={[styles.row, { borderColor }]}>
+    <View style={[styles.row, { borderColor, borderWidth: rowBorderWidth, backgroundColor: isDark ? "#111111" : colors.muted }]}>
       <View style={styles.textCol}>
-        <Text style={[styles.label, { fontSize: fs(16) }]}>{label}</Text>
-        <Text style={[styles.desc, { fontSize: fs(14) }]}>{description}</Text>
+        <Text style={[styles.label, { fontSize: fs(16) }, isDark && { color: "#f8fafc" }]}>{label}</Text>
+        <Text style={[styles.desc, { fontSize: fs(14) }, isDark && { color: "#a3a3a3" }]}>{description}</Text>
       </View>
       <Switch
         value={value}

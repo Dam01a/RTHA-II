@@ -1,6 +1,7 @@
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { ChevronRight } from "lucide-react-native";
 import { colors } from "../../theme/colors";
+import { useTheme } from "../../context/ThemeContext";
 
 type SettingsNavRowProps = {
   label: string;
@@ -19,8 +20,10 @@ export function SettingsNavRow({
   comingSoon = true,
   onPress,
 }: SettingsNavRowProps) {
+  const { isDark } = useTheme();
   const fs = (base: number) => (largeText ? Math.round(base * 1.12) : base);
   const borderColor = highContrast ? colors.foreground : colors.border;
+  const rowBorderWidth = highContrast ? 2 : isDark ? 0 : 1;
 
   const handlePress = () => {
     if (onPress) {
@@ -36,15 +39,20 @@ export function SettingsNavRow({
     <Pressable
       style={({ pressed }) => [
         styles.row,
-        { borderColor, opacity: pressed ? 0.85 : 1 },
+        {
+          borderColor,
+          borderWidth: rowBorderWidth,
+          opacity: pressed ? 0.85 : 1,
+          backgroundColor: isDark ? "#111111" : colors.muted,
+        },
       ]}
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
       <View style={styles.textCol}>
-        <Text style={[styles.label, { fontSize: fs(16) }]}>{label}</Text>
-        <Text style={[styles.desc, { fontSize: fs(14) }]}>{description}</Text>
+        <Text style={[styles.label, { fontSize: fs(16) }, isDark && { color: "#f8fafc" }]}>{label}</Text>
+        <Text style={[styles.desc, { fontSize: fs(14) }, isDark && { color: "#a3a3a3" }]}>{description}</Text>
         {comingSoon ? (
           <Text style={[styles.badge, { fontSize: fs(12) }]}>Coming soon</Text>
         ) : null}

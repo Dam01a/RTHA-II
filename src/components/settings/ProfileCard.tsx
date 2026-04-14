@@ -1,8 +1,10 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { LogOut } from "lucide-react-native";
 import { colors } from "../../theme/colors";
+import { useTheme } from "../../context/ThemeContext";
 
 type ProfileCardProps = {
+  name: string;
   email: string;
   initials: string;
   onSignOut: () => void;
@@ -10,7 +12,15 @@ type ProfileCardProps = {
   highContrast?: boolean;
 };
 
-export function ProfileCard({ email, initials, onSignOut, largeText = false, highContrast = false }: ProfileCardProps) {
+export function ProfileCard({
+  name,
+  email,
+  initials,
+  onSignOut,
+  largeText = false,
+  highContrast = false,
+}: ProfileCardProps) {
+  const { isDark } = useTheme();
   const fs = (base: number) => (largeText ? Math.round(base * 1.12) : base);
   const borderColor = highContrast ? colors.foreground : colors.border;
 
@@ -20,13 +30,15 @@ export function ProfileCard({ email, initials, onSignOut, largeText = false, hig
         <Text style={[styles.avatarText, { fontSize: fs(24) }]}>{initials}</Text>
       </View>
       <View style={styles.profileInfo}>
-        <Text style={[styles.profileName, { fontSize: fs(18) }]} numberOfLines={1}>
+        <Text style={[styles.profileName, { fontSize: fs(18) }, isDark && { color: "#f8fafc" }]} numberOfLines={1}>
+          {name}
+        </Text>
+        <Text style={[styles.profileEmail, { fontSize: fs(14) }, isDark && { color: "#a3a3a3" }]} numberOfLines={1}>
           {email}
         </Text>
-        <Text style={[styles.profileEmail, { fontSize: fs(14) }]}>Signed in with Firebase</Text>
       </View>
       <Pressable
-        style={[styles.signOutButton, { borderColor }]}
+        style={[styles.signOutButton, { borderColor, backgroundColor: isDark ? "#111111" : colors.card }]}
         onPress={onSignOut}
         accessibilityRole="button"
         accessibilityLabel="Sign out"

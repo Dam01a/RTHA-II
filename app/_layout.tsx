@@ -5,7 +5,9 @@ import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useRouter, useSegments } from "expo-router";
 import { AuthProvider, useAuth } from "@/src/context/AuthContext";
+import { ThemeProvider, useTheme } from "@/src/context/ThemeContext";
 import { colors } from "@/src/theme/colors";
+import "@/global.css";
 
 function AppNavigator() {
   const router = useRouter();
@@ -18,7 +20,7 @@ function AppNavigator() {
     }
 
     const isInAuthGroup = segments[0] === "(auth)";
-    const isConfirmEmailScreen = segments[1] === "confirm-email";
+    const isConfirmEmailScreen = segments.includes("confirm-email");
 
     if (!user && !isInAuthGroup) {
       router.replace("/(auth)/login");
@@ -35,6 +37,8 @@ function AppNavigator() {
     }
   }, [emailVerified, initializing, router, segments, user]);
 
+  const { isDark } = useTheme();
+
   if (initializing) {
     return (
       <View
@@ -42,7 +46,7 @@ function AppNavigator() {
           flex: 1,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: colors.background,
+          backgroundColor: isDark ? "#020817" : colors.background,
         }}
       >
         <ActivityIndicator size="large" color={colors.primary} />
@@ -61,10 +65,12 @@ function AppNavigator() {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <AuthProvider>
-        <AppNavigator />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <StatusBar style="auto" />
+          <AppNavigator />
+        </AuthProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

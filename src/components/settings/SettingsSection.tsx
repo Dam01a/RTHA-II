@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { StyleSheet, View, Text } from "react-native";
 import { colors } from "../../theme/colors";
+import { useTheme } from "../../context/ThemeContext";
 
 type SettingsSectionProps = {
   children: ReactNode;
@@ -24,8 +25,9 @@ export function SettingsSection({
   headerRight,
   variant = "default",
 }: SettingsSectionProps) {
+  const { isDark } = useTheme();
   const borderColor = highContrast ? colors.foreground : colors.border;
-  const cardBg = highContrast ? "#ffffff" : colors.card;
+  const cardBg = highContrast ? "#ffffff" : isDark ? "#050505" : colors.card;
 
   const showHeader = Boolean(title && (icon || subtitle || headerRight));
 
@@ -36,8 +38,8 @@ export function SettingsSection({
           <View style={styles.sectionHeaderRow}>
             {icon}
             <View style={styles.headerTextWrap}>
-              <Text style={styles.sectionTitle}>{title}</Text>
-              {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+              <Text style={[styles.sectionTitle, isDark && { color: "#f8fafc" }]}>{title}</Text>
+              {subtitle ? <Text style={[styles.sectionSubtitle, isDark && { color: "#a3a3a3" }]}>{subtitle}</Text> : null}
             </View>
             {headerRight}
           </View>
@@ -45,8 +47,8 @@ export function SettingsSection({
           <View style={styles.sectionHeader}>
             {icon}
             <View style={styles.headerTextWrap}>
-              <Text style={styles.sectionTitle}>{title}</Text>
-              {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+              <Text style={[styles.sectionTitle, isDark && { color: "#f8fafc" }]}>{title}</Text>
+              {subtitle ? <Text style={[styles.sectionSubtitle, isDark && { color: "#a3a3a3" }]}>{subtitle}</Text> : null}
             </View>
             {headerRight}
           </View>

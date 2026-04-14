@@ -5,7 +5,8 @@ module.exports = function (api) {
   const projectRoot = __dirname;
   return {
     presets: [
-      ["babel-preset-expo", { jsxImportSource: "react" }],
+      ["babel-preset-expo", { jsxImportSource: "nativewind" }],
+      "nativewind/babel",
     ],
     plugins: [
       [

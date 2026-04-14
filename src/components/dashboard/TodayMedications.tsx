@@ -6,6 +6,7 @@ import { colors } from "../../theme/colors";
 import { useAuth } from "../../context/AuthContext";
 import { useMedications } from "../../hooks/useMedications";
 import type { Medication } from "../../types/health";
+import { useTheme } from "../../context/ThemeContext";
 
 const MAX_ITEMS = 5;
 
@@ -13,6 +14,7 @@ export default function TodayMedications() {
   const router = useRouter();
   const { user } = useAuth();
   const { medications, loading, updateMedication } = useMedications(user?.uid);
+  const { isDark } = useTheme();
 
   const displayList = useMemo(() => medications.slice(0, MAX_ITEMS), [medications]);
 
@@ -28,7 +30,7 @@ export default function TodayMedications() {
 
   if (!user) {
     return (
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <View style={[styles.card, { backgroundColor: isDark ? "#050505" : colors.card }]}>
         <Text style={styles.title}>Today's Medications</Text>
         <Text style={styles.subtitle}>Sign in to track your medications.</Text>
       </View>
@@ -37,7 +39,7 @@ export default function TodayMedications() {
 
   if (loading) {
     return (
-      <View style={[styles.card, styles.loadingCard, { backgroundColor: colors.card }]}>
+      <View style={[styles.card, styles.loadingCard, { backgroundColor: isDark ? "#050505" : colors.card }]}>
         <ActivityIndicator color={colors.primary} />
         <Text style={styles.loadingLabel}>Loading medications…</Text>
       </View>
@@ -45,7 +47,7 @@ export default function TodayMedications() {
   }
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card }]}>
+    <View style={[styles.card, { backgroundColor: isDark ? "#050505" : colors.card }]}>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Today's Medications</Text>
@@ -75,6 +77,7 @@ export default function TodayMedications() {
               style={[
                 styles.medItem,
                 med.taken ? styles.medItemTaken : styles.medItemPending,
+                isDark && !med.taken && { backgroundColor: "#111111" },
               ]}
             >
               <Pressable
