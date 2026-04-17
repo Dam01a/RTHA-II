@@ -22,6 +22,25 @@ function storageKey(uid: string) {
 
 const asSubscribers = new Map<string, Set<(metrics: HealthMetric[]) => void>>();
 
+function logHealthMetricError(
+  operation: string,
+  uid: string,
+  details: Record<string, unknown>,
+  error: unknown
+) {
+  const normalized =
+    error instanceof Error
+      ? { name: error.name, message: error.message, stack: error.stack }
+      : { message: String(error) };
+  console.error("[healthMetrics] firestore operation failed", {
+    operation,
+    uid,
+    collectionPath: `users/${uid}/healthMetrics`,
+    ...details,
+    error: normalized,
+  });
+}
+
 function generateId(): string {
   const c = globalThis.crypto as Crypto | undefined;
   if (c?.randomUUID) {
@@ -136,8 +155,8 @@ export function subscribeHealthMetrics(
       onChange(snapshot.docs.map((d) => docToHealthMetric(d.id, d.data())));
     },
     (err) => {
+      logHealthMetricError("subscribe", uid, {}, err);
       onError?.(err as Error);
-      loadFromAsyncStorage(uid).then(onChange).catch(() => onChange([]));
     }
   );
 }
@@ -158,10 +177,9 @@ export async function addHealthMetric(uid: string, input: HealthMetricInput): Pr
 
   try {
     await setDoc(doc(db, "users", uid, "healthMetrics", id), healthMetricToFirestorePayload(input, { isCreate: true }));
-  } catch {
-    const current = await loadFromAsyncStorage(uid);
-    await saveToAsyncStorage(uid, [metric, ...current]);
-    await notifyAsyncStorageSubscribers(uid);
+  } catch (error) {
+    logHealthMetricError("add", uid, { metricId: id, payload: metric }, error);
+    throw error;
   }
   return id;
 }
@@ -185,11 +203,9 @@ export async function updateHealthMetric(uid: string, metricId: string, patch: P
     if (patch.diastolic !== undefined) payload.diastolic = patch.diastolic ?? null;
     if (patch.notes !== undefined) payload.notes = patch.notes ?? null;
     await updateDoc(doc(db, "users", uid, "healthMetrics", metricId), payload);
-  } catch {
-    const current = await loadFromAsyncStorage(uid);
-    const next = current.map((m) => (m.id === metricId ? { ...m, ...patch, id: m.id } : m));
-    await saveToAsyncStorage(uid, next);
-    await notifyAsyncStorageSubscribers(uid);
+  } catch (error) {
+    logHealthMetricError("update", uid, { metricId, patch }, error);
+    throw error;
   }
 }
 
@@ -203,9 +219,8 @@ export async function deleteHealthMetric(uid: string, metricId: string): Promise
 
   try {
     await deleteDoc(doc(db, "users", uid, "healthMetrics", metricId));
-  } catch {
-    const current = await loadFromAsyncStorage(uid);
-    await saveToAsyncStorage(uid, current.filter((m) => m.id !== metricId));
-    await notifyAsyncStorageSubscribers(uid);
+  } catch (error) {
+    logHealthMetricError("delete", uid, { metricId }, error);
+    throw error;
   }
 }

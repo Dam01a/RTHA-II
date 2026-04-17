@@ -23,6 +23,25 @@ function storageKey(uid: string) {
 /** In-memory subscribers for AsyncStorage mode (no Firestore). */
 const asSubscribers = new Map<string, Set<(meds: Medication[]) => void>>();
 
+function logMedicationError(
+  operation: string,
+  uid: string,
+  details: Record<string, unknown>,
+  error: unknown
+) {
+  const normalized =
+    error instanceof Error
+      ? { name: error.name, message: error.message, stack: error.stack }
+      : { message: String(error) };
+  console.error("[medications] firestore operation failed", {
+    operation,
+    uid,
+    collectionPath: `users/${uid}/medications`,
+    ...details,
+    error: normalized,
+  });
+}
+
 function generateId(): string {
   const c = globalThis.crypto as Crypto | undefined;
   if (c?.randomUUID) {
@@ -155,7 +174,7 @@ export function subscribeMedications(
     };
   }
 
-  const q = query(medicationsCollectionRef(uid), orderBy("createdAt", "asc"));
+  const q = query(medicationsCollectionRef(uid), orderBy("createdAt", "desc"));
   return onSnapshot(
     q,
     (snapshot) => {
@@ -163,10 +182,8 @@ export function subscribeMedications(
       onChange(list);
     },
     (err) => {
+      logMedicationError("subscribe", uid, {}, err);
       onError?.(err as Error);
-      loadMedicationsFromAsyncStorage(uid)
-        .then(onChange)
-        .catch(() => onChange([]));
     }
   );
 }
@@ -190,10 +207,9 @@ export async function addMedication(uid: string, input: MedicationInput): Promis
 
   try {
     await setDoc(doc(db, "users", uid, "medications", id), medicationToFirestorePayload(med, { isCreate: true }));
-  } catch {
-    const existing = await loadMedicationsFromAsyncStorage(uid);
-    await saveMedicationsToAsyncStorage(uid, [...existing, med]);
-    await notifyAsyncStorageSubscribers(uid);
+  } catch (error) {
+    logMedicationError("add", uid, { medicationId: id, payload: med }, error);
+    throw error;
   }
   return id;
 }
@@ -249,13 +265,9 @@ export async function updateMedication(uid: string, medicationId: string, patch:
       updatePayload.taken = patch.taken;
     }
     await updateDoc(ref, updatePayload);
-  } catch {
-    const existing = await loadMedicationsFromAsyncStorage(uid);
-    const next = existing.map((m) =>
-      m.id === medicationId ? { ...m, ...patch, id: m.id } : m
-    );
-    await saveMedicationsToAsyncStorage(uid, next);
-    await notifyAsyncStorageSubscribers(uid);
+  } catch (error) {
+    logMedicationError("update", uid, { medicationId, patch }, error);
+    throw error;
   }
 }
 
@@ -270,12 +282,8 @@ export async function deleteMedication(uid: string, medicationId: string): Promi
 
   try {
     await deleteDoc(doc(db, "users", uid, "medications", medicationId));
-  } catch {
-    const existing = await loadMedicationsFromAsyncStorage(uid);
-    await saveMedicationsToAsyncStorage(
-      uid,
-      existing.filter((m) => m.id !== medicationId)
-    );
-    await notifyAsyncStorageSubscribers(uid);
+  } catch (error) {
+    logMedicationError("delete", uid, { medicationId }, error);
+    throw error;
   }
 }

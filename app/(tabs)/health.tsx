@@ -4,6 +4,7 @@ import {
   Dimensions,
   ScrollView,
   StyleSheet,
+  Text as RNText,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -102,6 +103,7 @@ const METRIC_CONFIG: Record<
 };
 
 const METRIC_ROW: MetricType[] = ["heart_rate", "temperature", "weight", "blood_sugar"];
+const GRID_GAP = 10;
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -114,7 +116,13 @@ export default function HealthScreen() {
   const t = useTokens(isDark);
 
   const { width } = Dimensions.get("window");
-  const CARD_WIDTH = (width - 10) / 2; // full-width two-column grid with 10px gap
+  /** Two columns + one gap; floor so card borders never exceed screen width */
+  const CARD_WIDTH = Math.floor((width - GRID_GAP) / 2);
+  /** Large vitals text must scale down inside narrow half-width cards */
+  const metricValueFontSize = Math.min(32, Math.max(20, Math.floor(CARD_WIDTH * 0.26)));
+  const metricUnitFontSize = Math.min(13, Math.max(11, Math.floor(CARD_WIDTH * 0.09)));
+  /** Section (16×2) + chart inner card (16×2) — chart was `width - 32` which was too wide */
+  const chartInnerWidth = Math.max(200, width - 32 - 32);
 
   const getLatest = (type: MetricType) => metrics.find((m) => m.type === type);
 
@@ -135,6 +143,15 @@ export default function HealthScreen() {
         ],
       }));
   }, [metrics]);
+
+  const bpChartLayout = useMemo(() => {
+    const n = Math.max(bpChartData.length, 1);
+    const sidePad = 8;
+    const usable = Math.max(120, chartInnerWidth - sidePad * 2);
+    const spacing = n <= 1 ? 0 : Math.min(14, Math.max(4, Math.floor((usable - n * 18) / (n - 1))));
+    const barWidth = Math.max(12, Math.floor((usable - (n > 1 ? (n - 1) * spacing : 0)) / n));
+    return { barWidth, spacing, initialSpacing: sidePad, endSpacing: sidePad, chartWidth: chartInnerWidth };
+  }, [bpChartData.length, chartInnerWidth]);
 
   const latestBP = getLatest("blood_pressure");
 
@@ -195,23 +212,56 @@ export default function HealthScreen() {
                         {cfg.badge.dot && (
                           <View style={[s.badgeDot, { backgroundColor: cfg.badge.color }]} />
                         )}
-                        <Text style={[s.badgeText, { color: cfg.badge.color }]}>
+                        <RNText
+                          style={[s.badgeText, { color: cfg.badge.color }]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
                           {cfg.badge.text}
-                        </Text>
+                        </RNText>
                       </View>
                     )}
                   </View>
 
-                  <Text style={[s.metricLabel, { color: t.muted }]}>{cfg.label}</Text>
+                  {/* Native Text + explicit column body avoids NativeWind/layout bugs that overlap label & value */}
+                  <View style={s.metricCardBody}>
+                    <RNText style={[s.metricLabel, { color: t.muted }]} numberOfLines={2} ellipsizeMode="tail">
+                      {cfg.label}
+                    </RNText>
 
-                  {latest ? (
-                    <View style={s.metricValueRow}>
-                      <Text style={[s.metricValue, { color: t.text }]}>{latest.value}</Text>
-                      <Text style={[s.metricUnit, { color: t.muted }]}>{cfg.unit}</Text>
-                    </View>
-                  ) : (
-                    <Text style={[s.metricEmpty, { color: t.muted }]}>—</Text>
-                  )}
+                    {latest ? (
+                      <View style={s.metricValueBlock}>
+                        <RNText
+                          style={[
+                            s.metricValue,
+                            {
+                              color: t.text,
+                              fontSize: metricValueFontSize,
+                              lineHeight: Math.round(metricValueFontSize * 1.05),
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {latest.value != null ? String(latest.value) : "—"}
+                        </RNText>
+                        <RNText
+                          style={[
+                            s.metricUnit,
+                            {
+                              color: t.muted,
+                              fontSize: metricUnitFontSize,
+                              lineHeight: Math.round(metricUnitFontSize * 1.2),
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {cfg.unit}
+                        </RNText>
+                      </View>
+                    ) : (
+                      <RNText style={[s.metricEmpty, { color: t.muted }]}>—</RNText>
+                    )}
+                  </View>
                 </View>
               );
             })}
@@ -239,10 +289,12 @@ export default function HealthScreen() {
             {bpChartData.length > 0 ? (
               <BarChart
                 data={bpChartData}
-                width={width - 32} // chartArea horizontal padding only
-                height={130}
-                barWidth={24}
-                spacing={14}
+                width={bpChartLayout.chartWidth}
+                height={152}
+                barWidth={bpChartLayout.barWidth}
+                spacing={bpChartLayout.spacing}
+                initialSpacing={bpChartLayout.initialSpacing}
+                endSpacing={bpChartLayout.endSpacing}
                 roundedTop
                 roundedBottom
                 hideRules
@@ -422,12 +474,15 @@ const s = StyleSheet.create({
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: GRID_GAP,
   },
   metricCard: {
+    flexDirection: "column",
+    alignItems: "stretch",
     borderRadius: 20,
     padding: 16,
-    gap: 6,
+    gap: 8,
+    minWidth: 0,
     // shadow
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
@@ -440,6 +495,8 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 10,
+    minWidth: 0,
+    gap: 8,
   },
   metricIcon: {
     width: 40,
@@ -455,13 +512,44 @@ const s = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: "62%",
   },
   badgeDot: { width: 5, height: 5, borderRadius: 3 },
   badgeText: { fontSize: 9, fontWeight: "800", letterSpacing: 0.4 },
-  metricLabel: { fontSize: 12, fontWeight: "600" },
-  metricValueRow: { flexDirection: "row", alignItems: "baseline", gap: 4, marginTop: 2 },
-  metricValue: { fontSize: 32, fontWeight: "800", letterSpacing: -1 },
-  metricUnit: { fontSize: 13, fontWeight: "600" },
+  metricCardBody: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    width: "100%",
+    minWidth: 0,
+    gap: 6,
+  },
+  metricLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    minWidth: 0,
+    width: "100%",
+    lineHeight: 16,
+  },
+  /** Value then unit on one row; full width so label never shares a flex row with the number */
+  metricValueBlock: {
+    flexDirection: "row",
+    flexWrap: "nowrap",
+    alignItems: "baseline",
+    gap: 6,
+    minWidth: 0,
+    width: "100%",
+    marginTop: 2,
+  },
+  metricValue: {
+    fontWeight: "800",
+    letterSpacing: -0.5,
+    flexGrow: 0,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  metricUnit: { fontWeight: "600", flexShrink: 0, flexGrow: 0, marginLeft: 2 },
   metricEmpty: { fontSize: 28, fontWeight: "300", marginTop: 2 },
 
   // Shared section card

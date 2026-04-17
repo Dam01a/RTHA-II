@@ -98,7 +98,9 @@ export default function MedicationsScreen() {
   };
 
   const handleSave = async (input: MedicationInput) => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      throw new Error("You must be signed in to save medications.");
+    }
     if (editing) {
       await updateMedication(editing.id, input);
     } else {

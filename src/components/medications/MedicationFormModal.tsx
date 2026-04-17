@@ -148,9 +148,14 @@ export function MedicationFormModal({ visible, onClose, initial, onSave, title }
     setSaving(true);
     try {
       await onSave(payload);
+      Alert.alert("Saved", initial ? "Medication updated successfully." : "Medication saved successfully.");
       onClose();
-    } catch {
-      Alert.alert("Error", "Could not save medication. Try again.");
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Could not save medication. Try again.";
+      Alert.alert("Error", message);
     } finally {
       setSaving(false);
     }

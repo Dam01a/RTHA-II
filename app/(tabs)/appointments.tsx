@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, View, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { Alert, View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import {
   CalendarDays,
   Plus,
@@ -17,7 +17,7 @@ import {
 import { useAuth } from "@/src/context/AuthContext";
 import { useAppointments } from "@/src/hooks/useAppointments";
 import type { Appointment } from "@/src/types/health";
-import { format, parseISO, isToday, isTomorrow, addDays } from "date-fns";
+import { format, parseISO, isToday, isTomorrow, addDays, startOfDay, isBefore } from "date-fns";
 import { colors } from "@/src/theme/colors";
 import { useTheme } from "@/src/context/ThemeContext";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import { Text } from "@/components/ui/text";
 import { Screen } from "@/src/components/app/Screen";
 import { AppointmentFormModal } from "@/src/components/appointments/AppointmentFormModal";
 import type { AppointmentInput } from "@/src/lib/appointments";
+import { useProviders } from "@/src/hooks/useProviders";
 
 const typeColors: Record<string, { bg: string; text: string }> = {
   checkup: { bg: colors.primary + "1A", text: colors.primary },
@@ -43,10 +44,24 @@ function isSameDateString(dateA: string, dateB: string) {
   return dateA.slice(0, 10) === dateB.slice(0, 10);
 }
 
+function visitTypeShort(v: Appointment["visitType"]) {
+  switch (v) {
+    case "in_person":
+      return "In person";
+    case "virtual":
+      return "Virtual";
+    case "follow_up":
+      return "Follow-up";
+    default:
+      return "";
+  }
+}
+
 export default function AppointmentsScreen() {
   const { isDark } = useTheme();
   const { user } = useAuth();
   const { appointments, addAppointment, updateAppointment, deleteAppointment } = useAppointments(user?.uid);
+  const { providers, loading: providersLoading } = useProviders(user?.uid);
   
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [weekOffset, setWeekOffset] = useState(0); 
@@ -89,6 +104,9 @@ export default function AppointmentsScreen() {
   };
 
   const handleSave = async (input: AppointmentInput) => {
+    if (!user?.uid) {
+      throw new Error("You must be signed in to book appointments.");
+    }
     if (editing) {
       await updateAppointment(editing.id, input);
       setEditing(null);
@@ -96,6 +114,20 @@ export default function AppointmentsScreen() {
     }
     await addAppointment(input);
   };
+
+  const pastVisits = useMemo(() => {
+    const todayStart = startOfDay(new Date());
+    return [...appointments]
+      .filter((a) => {
+        try {
+          return isBefore(startOfDay(parseISO(a.date)), todayStart);
+        } catch {
+          return false;
+        }
+      })
+      .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))
+      .slice(0, 6);
+  }, [appointments]);
 
   return (
     <Screen 
@@ -106,6 +138,12 @@ export default function AppointmentsScreen() {
       contentClassName="px-0 pt-0 pb-0"
     >
       <View style={styles.heroSection}>
+        {providersLoading && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={{ color: mutedTextColor, fontSize: 13 }}>Loading providers…</Text>
+          </View>
+        )}
         <TouchableOpacity 
           style={[styles.mainScheduleButton, { backgroundColor: colors.primary }]} 
           onPress={openAdd} 
@@ -203,13 +241,23 @@ export default function AppointmentsScreen() {
                   <IconComp size={22} color={tc.text} />
                 </View>
                 
-                <Text style={[styles.aptTitle, { color: textColor }]}>{apt.doctorName || apt.title}</Text>
+                <Text style={[styles.aptTitle, { color: textColor }]}>
+                  {apt.providerName || apt.doctorName || apt.title}
+                </Text>
                 
                 <View style={styles.aptMeta}>
                   <View style={styles.metaItem}>
                     <Stethoscope size={14} color={mutedTextColor} />
-                    <Text style={[styles.metaText, { color: mutedTextColor }]}>{apt.title}</Text>
+                    <Text style={[styles.metaText, { color: mutedTextColor }]} numberOfLines={2}>
+                      {apt.reason || apt.title}
+                    </Text>
                   </View>
+                  {visitTypeShort(apt.visitType) ? (
+                    <View style={styles.metaItem}>
+                      <FileText size={14} color={mutedTextColor} />
+                      <Text style={[styles.metaText, { color: mutedTextColor }]}>{visitTypeShort(apt.visitType)}</Text>
+                    </View>
+                  ) : null}
                   <View style={styles.metaItem}>
                     <MapPin size={14} color={mutedTextColor} />
                     <Text style={[styles.metaText, { color: mutedTextColor }]}>{apt.location}</Text>
@@ -255,31 +303,43 @@ export default function AppointmentsScreen() {
       <Card style={[styles.recentVisitsCard, { backgroundColor: surfaceBg, borderColor: surfaceBorder }]}>
         <View style={styles.timelineContainer}>
           <View style={[styles.timelineLine, { backgroundColor: surfaceBorder }]} />
-          
-          <View style={styles.timelineItem}>
-            <View style={[styles.timelineDot, { backgroundColor: colors.primary, borderColor: colors.primary + "40", borderWidth: 4 }]} />
-            <Text style={[styles.timelineDate, { color: mutedTextColor }]}>OCT 02, 2023</Text>
-            <Text style={[styles.timelineTitle, { color: textColor }]}>General Checkup</Text>
-            <Text style={[styles.timelineDoctor, { color: mutedTextColor }]}>Dr. Elena Rodriguez</Text>
-            <TouchableOpacity style={styles.timelineAction}>
-              <Text style={[styles.timelineActionText, { color: colors.primary }]}>Summary</Text>
-              <ArrowRight size={12} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.timelineItem}>
-            <View style={[styles.timelineDot, { backgroundColor: mutedTextColor }]} />
-            <Text style={[styles.timelineDate, { color: mutedTextColor }]}>SEP 18, 2023</Text>
-            <Text style={[styles.timelineTitle, { color: textColor }]}>Dermatology Follow-up</Text>
-            <Text style={[styles.timelineDoctor, { color: mutedTextColor }]}>Dr. James Wilson</Text>
-            <TouchableOpacity style={styles.timelineAction}>
-              <Text style={[styles.timelineActionText, { color: colors.primary }]}>Prescription</Text>
-              <FileText size={12} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
+          {pastVisits.length === 0 ? (
+            <Text style={{ color: mutedTextColor, paddingLeft: 28, paddingBottom: 12 }}>
+              No past appointments yet. Completed visits will appear here.
+            </Text>
+          ) : (
+            pastVisits.map((apt, idx) => (
+              <View key={apt.id} style={styles.timelineItem}>
+                <View
+                  style={[
+                    styles.timelineDot,
+                    {
+                      backgroundColor: idx === 0 ? colors.primary : mutedTextColor,
+                      borderColor: idx === 0 ? colors.primary + "40" : "transparent",
+                      borderWidth: idx === 0 ? 4 : 0,
+                    },
+                  ]}
+                />
+                <Text style={[styles.timelineDate, { color: mutedTextColor }]}>
+                  {format(parseISO(apt.date), "MMM dd, yyyy").toUpperCase()}
+                </Text>
+                <Text style={[styles.timelineTitle, { color: textColor }]}>{apt.title}</Text>
+                <Text style={[styles.timelineDoctor, { color: mutedTextColor }]}>
+                  {apt.providerName || apt.doctorName || "Provider"}
+                </Text>
+                <TouchableOpacity style={styles.timelineAction} onPress={() => openEdit(apt)}>
+                  <Text style={[styles.timelineActionText, { color: colors.primary }]}>Details</Text>
+                  <ArrowRight size={12} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
         </View>
 
-        <TouchableOpacity style={[styles.fullHistoryButton, { backgroundColor: isDark ? "#262626" : colors.secondary + "30" }]}>
+        <TouchableOpacity
+          style={[styles.fullHistoryButton, { backgroundColor: isDark ? "#262626" : colors.secondary + "30" }]}
+          onPress={() => Alert.alert("History", "Full history view can list all past appointments in a future update.")}
+        >
           <Text style={[styles.fullHistoryText, { color: textColor }]}>View Full History</Text>
           <ArrowRight size={16} color={mutedTextColor} />
         </TouchableOpacity>
@@ -309,6 +369,7 @@ export default function AppointmentsScreen() {
       <AppointmentFormModal
         visible={modalOpen}
         initial={editing}
+        providers={providers}
         onClose={() => {
           setModalOpen(false);
           setEditing(null);

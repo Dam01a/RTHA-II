@@ -13,8 +13,30 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
 
+    match /users/{uid}/medications/{medicationId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
     match /users/{uid}/appointments/{appointmentId} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Seeded provider directory (public read so directory + queries work even before auth finishes)
+    match /providers/{providerId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && providerId in ['prov_carter', 'prov_lee', 'prov_patel', 'prov_nguyen']
+        && !exists(/databases/$(database)/documents/providers/$(providerId));
+      allow update, delete: if false;
+    }
+
+    // SMS reminder queue processed by Cloud Functions (admin SDK)
+    match /appointmentReminderQueue/{queueId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
     match /emergencyEvents/{eventId} {

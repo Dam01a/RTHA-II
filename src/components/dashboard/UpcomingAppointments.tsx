@@ -63,10 +63,10 @@ export default function UpcomingAppointments() {
                     <Clock size={14} color={colors.mutedForeground} />
                     <Text style={styles.metaText}>{apt.time}</Text>
                   </View>
-                  {apt.doctorName && (
+                  {(apt.providerName || apt.doctorName) && (
                     <View style={styles.metaItem}>
                       <User size={14} color={colors.mutedForeground} />
-                      <Text style={styles.metaText}>{apt.doctorName}</Text>
+                      <Text style={styles.metaText}>{apt.providerName || apt.doctorName}</Text>
                     </View>
                   )}
                   <View style={styles.metaItem}>

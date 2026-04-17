@@ -19,10 +19,24 @@ export interface Appointment {
   date: string;
   time: string;
   location: string;
+  providerId?: string;
+  providerName?: string;
   doctorName?: string;
+  reason?: string;
+  visitType?: "in_person" | "virtual" | "follow_up";
   type: 'checkup' | 'specialist' | 'lab' | 'therapy' | 'other';
   notes?: string;
   reminder: boolean;
+  reminderSmsEnabled?: boolean;
+  reminderStatus?: "pending" | "scheduled" | "sent" | "failed";
+}
+
+export interface Provider {
+  id: string;
+  name: string;
+  specialty: string;
+  location: string;
+  phone?: string;
 }
 
 export interface EmergencyContact {

@@ -15,18 +15,33 @@ import {
 import { X } from "lucide-react-native";
 import { colors } from "@/src/theme/colors";
 import { useTheme } from "@/src/context/ThemeContext";
-import type { Appointment } from "@/src/types/health";
+import type { Appointment, Provider } from "@/src/types/health";
 import type { AppointmentInput } from "@/src/lib/appointments";
 
-const TYPE_OPTIONS: Appointment["type"][] = ["checkup", "specialist", "lab", "therapy", "other"];
+const CATEGORY_OPTIONS: Appointment["type"][] = ["checkup", "specialist", "lab", "therapy", "other"];
+const VISIT_TYPE_OPTIONS: NonNullable<Appointment["visitType"]>[] = ["in_person", "virtual", "follow_up"];
 
 function todayDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function visitTypeLabel(v: Appointment["visitType"]) {
+  switch (v) {
+    case "in_person":
+      return "In person";
+    case "virtual":
+      return "Virtual";
+    case "follow_up":
+      return "Follow-up";
+    default:
+      return "In person";
+  }
+}
+
 type Props = {
   visible: boolean;
   initial: Appointment | null;
+  providers: Provider[];
   onClose: () => void;
   onSave: (input: AppointmentInput) => Promise<void>;
 };
@@ -39,10 +54,15 @@ function emptyForm(): FormState {
     date: todayDate(),
     time: "09:00",
     location: "",
-    doctorName: "",
+    providerId: undefined,
+    providerName: undefined,
+    doctorName: undefined,
+    reason: "",
+    visitType: "in_person",
     type: "checkup",
     notes: "",
     reminder: true,
+    reminderSmsEnabled: true,
   };
 }
 
@@ -52,14 +72,19 @@ function fromInitial(initial: Appointment): FormState {
     date: initial.date,
     time: initial.time,
     location: initial.location,
-    doctorName: initial.doctorName ?? "",
+    providerId: initial.providerId,
+    providerName: initial.providerName,
+    doctorName: initial.doctorName,
+    reason: initial.reason ?? "",
+    visitType: initial.visitType ?? "in_person",
     type: initial.type,
     notes: initial.notes ?? "",
     reminder: initial.reminder,
+    reminderSmsEnabled: initial.reminderSmsEnabled ?? false,
   };
 }
 
-export function AppointmentFormModal({ visible, initial, onClose, onSave }: Props) {
+export function AppointmentFormModal({ visible, initial, providers, onClose, onSave }: Props) {
   const { isDark } = useTheme();
   const [form, setForm] = useState<FormState>(emptyForm());
   const [saving, setSaving] = useState(false);
@@ -72,9 +97,28 @@ export function AppointmentFormModal({ visible, initial, onClose, onSave }: Prop
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
+  const selectProvider = (p: Provider) => {
+    setForm((prev) => ({
+      ...prev,
+      providerId: p.id,
+      providerName: p.name,
+      doctorName: p.name,
+      location: prev.location.trim() ? prev.location : p.location,
+      title: prev.title.trim() ? prev.title : `Visit with ${p.name}`,
+    }));
+  };
+
   const handleSave = async () => {
-    if (!form.title.trim()) {
-      Alert.alert("Missing title", "Please enter an appointment title.");
+    if (!form.providerId || !form.providerName) {
+      Alert.alert("Provider required", "Choose a doctor or clinic from the list.");
+      return;
+    }
+    if (!form.reason?.trim()) {
+      Alert.alert("Reason required", "Please describe the reason for this visit.");
+      return;
+    }
+    if (!form.visitType) {
+      Alert.alert("Visit type", "Select how this visit will happen (in person, virtual, or follow-up).");
       return;
     }
     if (!form.date.trim() || !form.time.trim()) {
@@ -82,24 +126,36 @@ export function AppointmentFormModal({ visible, initial, onClose, onSave }: Prop
       return;
     }
     if (!form.location.trim()) {
-      Alert.alert("Missing location", "Please enter a location.");
+      Alert.alert("Location required", "Enter where the visit takes place (or your home for telehealth).");
       return;
     }
+    const title =
+      form.title.trim() ||
+      `${visitTypeLabel(form.visitType)} — ${form.providerName}`;
 
     setSaving(true);
     try {
       await onSave({
         ...form,
-        title: form.title.trim(),
+        title: title.trim(),
         date: form.date.trim(),
         time: form.time.trim(),
         location: form.location.trim(),
-        doctorName: form.doctorName?.trim() || undefined,
+        providerId: form.providerId,
+        providerName: form.providerName,
+        doctorName: form.doctorName ?? form.providerName,
+        reason: form.reason.trim(),
+        visitType: form.visitType,
         notes: form.notes?.trim() || undefined,
+        reminder: form.reminderSmsEnabled,
+        reminderSmsEnabled: form.reminderSmsEnabled,
       });
+      Alert.alert("Saved", initial ? "Appointment updated." : "Appointment booked.");
       onClose();
-    } catch {
-      Alert.alert("Save failed", "Could not save appointment. Try again.");
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message ? error.message : "Could not save appointment. Try again.";
+      Alert.alert("Save failed", message);
     } finally {
       setSaving(false);
     }
@@ -107,16 +163,88 @@ export function AppointmentFormModal({ visible, initial, onClose, onSave }: Prop
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={[styles.flex, isDark && { backgroundColor: "#000" }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView
+        style={[styles.flex, isDark && { backgroundColor: "#000" }]}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <View style={[styles.header, isDark && { backgroundColor: "#050505", borderBottomColor: "#262626" }]}>
-          <Text style={[styles.headerTitle, isDark && { color: "#f8fafc" }]}>{initial ? "Edit appointment" : "New appointment"}</Text>
+          <Text style={[styles.headerTitle, isDark && { color: "#f8fafc" }]}>
+            {initial ? "Edit appointment" : "Book appointment"}
+          </Text>
           <Pressable onPress={onClose} hitSlop={10}>
             <X color={isDark ? "#f8fafc" : colors.foreground} size={22} />
           </Pressable>
         </View>
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-          <Text style={[styles.label, isDark && { color: "#f8fafc" }]}>Title</Text>
-          <TextInput style={[styles.input, isDark && styles.inputDark]} value={form.title} onChangeText={(t) => setField("title", t)} />
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Text style={[styles.label, isDark && { color: "#f8fafc" }]}>Provider</Text>
+          <Text style={[styles.hint, isDark && { color: "#94a3b8" }]}>
+            Select who you are seeing. Directory is maintained for your organization.
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.providerRow}>
+            {providers.map((p) => {
+              const selected = form.providerId === p.id;
+              return (
+                <Pressable
+                  key={p.id}
+                  onPress={() => selectProvider(p)}
+                  style={[
+                    styles.providerCard,
+                    selected && styles.providerCardActive,
+                    isDark && !selected && { backgroundColor: "#0a0a0a", borderColor: "#262626" },
+                  ]}
+                >
+                  <Text style={[styles.providerName, isDark && { color: "#f8fafc" }]} numberOfLines={2}>
+                    {p.name}
+                  </Text>
+                  <Text style={[styles.providerMeta, isDark && { color: "#94a3b8" }]} numberOfLines={1}>
+                    {p.specialty}
+                  </Text>
+                  <Text style={[styles.providerLoc, isDark && { color: "#64748b" }]} numberOfLines={1}>
+                    {p.location}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          {providers.length === 0 && (
+            <Text style={[styles.warn, isDark && { color: "#fbbf24" }]}>
+              No providers loaded. Check your connection and Firestore rules for `providers`.
+            </Text>
+          )}
+
+          <Text style={[styles.label, isDark && { color: "#f8fafc" }]}>Reason for visit</Text>
+          <TextInput
+            style={[styles.input, styles.notes, isDark && styles.inputDark]}
+            placeholder="e.g. Annual physical, blood pressure follow-up"
+            placeholderTextColor={colors.mutedForeground}
+            value={form.reason ?? ""}
+            onChangeText={(t) => setField("reason", t)}
+            multiline
+          />
+
+          <Text style={[styles.label, isDark && { color: "#f8fafc" }]}>Visit type</Text>
+          <View style={styles.types}>
+            {VISIT_TYPE_OPTIONS.map((vt) => (
+              <Pressable
+                key={vt}
+                onPress={() => setField("visitType", vt)}
+                style={[styles.typeChip, form.visitType === vt && styles.typeChipActive, isDark && styles.typeChipDark]}
+              >
+                <Text style={[styles.typeChipText, form.visitType === vt && styles.typeChipTextActive]}>
+                  {visitTypeLabel(vt)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={[styles.label, isDark && { color: "#f8fafc" }]}>Title (optional)</Text>
+          <TextInput
+            style={[styles.input, isDark && styles.inputDark]}
+            value={form.title}
+            onChangeText={(t) => setField("title", t)}
+            placeholder="Defaults from provider + visit type"
+            placeholderTextColor={colors.mutedForeground}
+          />
 
           <View style={styles.row}>
             <View style={styles.half}>
@@ -130,18 +258,21 @@ export function AppointmentFormModal({ visible, initial, onClose, onSave }: Prop
           </View>
 
           <Text style={[styles.label, isDark && { color: "#f8fafc" }]}>Location</Text>
-          <TextInput style={[styles.input, isDark && styles.inputDark]} value={form.location} onChangeText={(t) => setField("location", t)} />
+          <TextInput
+            style={[styles.input, isDark && styles.inputDark]}
+            value={form.location}
+            onChangeText={(t) => setField("location", t)}
+            placeholder="Clinic address or Virtual"
+            placeholderTextColor={colors.mutedForeground}
+          />
 
-          <Text style={[styles.label, isDark && { color: "#f8fafc" }]}>Doctor (optional)</Text>
-          <TextInput style={[styles.input, isDark && styles.inputDark]} value={form.doctorName ?? ""} onChangeText={(t) => setField("doctorName", t)} />
-
-          <Text style={[styles.label, isDark && { color: "#f8fafc" }]}>Type</Text>
+          <Text style={[styles.label, isDark && { color: "#f8fafc" }]}>Category</Text>
           <View style={styles.types}>
-            {TYPE_OPTIONS.map((type) => (
+            {CATEGORY_OPTIONS.map((type) => (
               <Pressable
                 key={type}
                 onPress={() => setField("type", type)}
-                style={[styles.typeChip, form.type === type && styles.typeChipActive, isDark && form.type !== type && styles.typeChipDark]}
+                style={[styles.typeChip, form.type === type && styles.typeChipActive, isDark && styles.typeChipDark]}
               >
                 <Text style={[styles.typeChipText, form.type === type && styles.typeChipTextActive]}>{type}</Text>
               </Pressable>
@@ -157,8 +288,19 @@ export function AppointmentFormModal({ visible, initial, onClose, onSave }: Prop
           />
 
           <View style={styles.rowBetween}>
-            <Text style={[styles.label, isDark && { color: "#f8fafc" }]}>Reminder</Text>
-            <Switch value={form.reminder} onValueChange={(v) => setField("reminder", v)} />
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={[styles.label, isDark && { color: "#f8fafc", marginBottom: 4 }]}>SMS reminder</Text>
+              <Text style={[styles.hint, isDark && { color: "#94a3b8" }]}>
+                Sends ~24h before (or soon if sooner). Uses the phone number saved in Settings → Profile.
+              </Text>
+            </View>
+            <Switch
+              value={form.reminderSmsEnabled}
+              onValueChange={(v) => {
+                setField("reminderSmsEnabled", v);
+                setField("reminder", v);
+              }}
+            />
           </View>
         </ScrollView>
         <View style={[styles.footer, isDark && { backgroundColor: "#050505", borderTopColor: "#262626" }]}>
@@ -190,6 +332,25 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: { padding: 16, paddingBottom: 24 },
   label: { fontSize: 14, fontWeight: "600", color: colors.foreground, marginBottom: 8 },
+  hint: { fontSize: 12, color: colors.mutedForeground, marginBottom: 10, lineHeight: 18 },
+  warn: { fontSize: 13, color: colors.warning, marginBottom: 12 },
+  providerRow: { marginBottom: 16, maxHeight: 120 },
+  providerCard: {
+    width: 160,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    marginRight: 10,
+  },
+  providerCardActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + "12",
+  },
+  providerName: { fontSize: 14, fontWeight: "700", marginBottom: 4 },
+  providerMeta: { fontSize: 12, marginBottom: 2 },
+  providerLoc: { fontSize: 11 },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -203,14 +364,14 @@ const styles = StyleSheet.create({
   inputDark: { backgroundColor: "#0a0a0a", borderColor: "#262626", color: "#f8fafc" },
   row: { flexDirection: "row", gap: 10 },
   half: { flex: 1 },
-  notes: { minHeight: 90, textAlignVertical: "top" },
+  notes: { minHeight: 72, textAlignVertical: "top" },
   types: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 },
   typeChip: { backgroundColor: colors.muted, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 8 },
   typeChipDark: { backgroundColor: "#111111" },
   typeChipActive: { backgroundColor: colors.primary + "25" },
   typeChipText: { color: colors.mutedForeground, fontSize: 12, fontWeight: "600" },
   typeChipTextActive: { color: colors.primary },
-  rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   footer: {
     flexDirection: "row",
     gap: 10,

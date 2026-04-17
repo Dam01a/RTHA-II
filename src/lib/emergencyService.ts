@@ -1,5 +1,3 @@
-import * as Location from "expo-location";
-import * as SMS from "expo-sms";
 import type { EmergencyContact } from "@/src/types/health";
 import type { EmergencyAlertPayload, EmergencyDispatchResult, EmergencyLocation } from "@/src/types/emergency";
 import { auth } from "@/src/lib/firebase";
@@ -22,6 +20,7 @@ function sanitizePhone(value: string): string {
 }
 
 async function captureLocation() {
+  const Location = await import("expo-location");
   const permission = await Location.requestForegroundPermissionsAsync();
   if (permission.status !== "granted") {
     return { locationShared: false as const };
@@ -48,33 +47,48 @@ function buildMessage(timestamp: string, locationInfo: ReturnType<typeof formatL
 }
 
 async function tryProviderSms(payload: EmergencyAlertPayload, contacts: EmergencyContact[]) {
-  const endpoint = process.env.EXPO_PUBLIC_EMERGENCY_FUNCTION_URL;
-  if (!endpoint) {
-    throw new Error("Missing emergency function endpoint.");
+  const projectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
+  if (!projectId) {
+    throw new Error("Missing Firebase project id.");
   }
 
+  const endpoint = `https://us-central1-${projectId}.cloudfunctions.net/triggerEmergencyAlert`;
   const token = await auth.currentUser?.getIdToken();
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: token ? `Bearer ${token}` : "",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({
-    payload,
-      contacts: contacts.map((contact) => ({
-        id: contact.id,
-        name: contact.name,
-        phone: sanitizePhone(contact.phone),
-      })),
+      data: {
+        payload,
+        contacts: contacts.map((contact) => ({
+          id: contact.id,
+          name: contact.name,
+          phone: sanitizePhone(contact.phone),
+        })),
+      },
     }),
   });
 
   if (!response.ok) {
-    throw new Error("Provider request failed.");
+    throw new Error(`Provider request failed (${response.status}).`);
   }
 
-  const data = (await response.json()) as {
+  const raw = (await response.json()) as {
+    result?: {
+      status?: "sent" | "partial_failure" | "failed";
+      contactedPhones?: string[];
+      failedPhones?: string[];
+    };
+    error?: { message?: string };
+  };
+  if (raw.error) {
+    throw new Error(raw.error.message || "Provider callable failed.");
+  }
+
+  const data = raw.result as {
     status?: "sent" | "partial_failure" | "failed";
     contactedPhones?: string[];
     failedPhones?: string[];
@@ -88,6 +102,7 @@ async function tryProviderSms(payload: EmergencyAlertPayload, contacts: Emergenc
 }
 
 async function fallbackToDeviceSms(phones: string[], message: string) {
+  const SMS = await import("expo-sms");
   const available = await SMS.isAvailableAsync();
   if (!available || phones.length === 0) {
     return { sent: false, sentPhones: [] as string[] };

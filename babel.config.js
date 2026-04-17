@@ -12,7 +12,6 @@ module.exports = function (api) {
       [
         "module-resolver",
         {
-          root: [path.resolve(projectRoot)],
           alias: {
             "@": path.resolve(projectRoot),
           },
